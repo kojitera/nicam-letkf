@@ -1,0 +1,29 @@
+TOPPATH=.
+
+COMDIR=$(TOPPATH)/common
+NCOMDIR=$(TOPPATH)/nicam/common
+NOBSDIR=$(TOPPATH)/nicam/obs
+NLETKFDIR=$(TOPPATH)/nicam/letkf
+INSTALLDIR=$(TOPPATH)/bin
+
+## WHERE THE NICAM INSTALLED
+NICAMDIR=/fefs/data/e/e508/NICAM_LETKF/nicam14.3/workspace
+#NICAMDIR=/fefs/data/e/e508/NICAM_LETKF/nicam/workspace
+
+GLEVEL=05
+RLEVEL=00
+
+#FC=f90sjxmsg
+FC=f90sjx
+
+RTTOV_DIR = /fefs/data/e/e508/rttov/11.1
+FFLAGS_RTTOV = -L$(RTTOV_DIR)/lib -lrttov11.1.0_test -lrttov11.1.0_other -lrttov11.1.0_coef_io -lrttov11.1.0_parallel -lrttov11.1.0_main  -I$(RTTOV_DIR)/mod/ -I$(RTTOV_DIR)/include
+
+## FOR K COMPUTER
+F90OPT= -Umpi -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -I$(COMDIR) -I$(NCOMDIR) -I$(NOBSDIR) -I$(NLETKFDIR) -I$(NICAMDIR) $(FFLAGS_RTTOV)
+
+#F90OPT= -Umpi -Kfast,parallel,ocl,preex,array_private,noalias=s,mfunc=1 -Qi -Qt -X03 -Ncompdisp -Koptmsg=1 -Cpp -Kdynamic_iteration -Ksimd -I$(COMDIR) -I$(NCOMDIR) -I$(NOBSDIR) -I$(NLETKFDIR) -I$(NICAMDIR) $(FFLAGS_RTTOV)
+
+INSTALL = install
+
+CLEAN = rm -f *.o *.mod

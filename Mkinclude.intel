@@ -1,0 +1,26 @@
+TOPPATH=/home/koji/work/letkf_test/ico_letkf/develop
+
+COMDIR=$(TOPPATH)/common
+NCOMDIR=$(TOPPATH)/nicam/common
+NOBSDIR=$(TOPPATH)/nicam/obs
+NLETKFDIR=$(TOPPATH)/nicam/letkf
+INSTALLDIR=$(TOPPATH)/bin
+
+## NICAM INSTALL DIRECTORY
+NICAMDIR=/home/koji/work/letkf_test/nicam/latest/workspace
+
+## RTTOV INSTALL DIRECTORY
+RTTOVDIR=/home/koji/work/letkf_test/rttov/11.1/mod
+
+FC=mpif90
+
+## FOR K COMPUTER
+#F90OPT=-Kfast,openmp,parallel,auto,ocl,preex,array_private,noalias=s,mfunc=2 -Kdynamic_iteration -Qi -Qt -X03 -Ncompdisp -Koptmsg=1 -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -O2 -KNOFLTLD -I$(COMDIR) -I$(NCOMDIR) -I$(NOBSDIR) -I$(NLETKFDIR) -I$(NICAMDIR)
+
+## FOR INTEL FORTRAN COMPILER
+F90OPT=-O3 -xHOST -convert big_endian -assume byterecl -I$(COMDIR) -I$(NCOMDIR) -I$(NOBSDIR) -I$(NLETKFDIR) -I$(NICAMDIR) -I$(RTTOVDIR)
+
+INSTALL = install
+
+CLEAN = rm -f *.o *.mod
+
