@@ -711,25 +711,14 @@ program prg_obsope_amsua
     do nn = 1, ninstrument
       do n = 1, ntvsprof(nn,islot)
         tvsland(n,nn,islot)=lsql(n,nn,islot)
-        !do ic = 1,ntvsch(nn)
-        !  tvsdat(ic,n,nn,islot)=odat(tvsch(ic,nn),i)
-        !end do
-        !tvsdat(:,n,nn,islot)=odat(:,i)
         tvsdat_org(:,n,nn,islot)=odat(:,i)
         i=i+1
       end do
     end do
   end do
+
   tvserr(:,:,:,:)=0.5d0
-  !tvserr(:,:,:,:)=0.4d0
-  !do nn = 1, ninstrument
-  !  tvserr(1,:,nn,:)=0.3
-  !  tvserr(2,:,nn,:)=0.2
-  !  tvserr(3,:,nn,:)=0.25
-  !  tvserr(4,:,nn,:)=0.28
-  !  tvserr(5,:,nn,:)=0.3
-  !  tvserr(6,:,nn,:)=0.4
-  !end do
+
   do nn = 1, ninstrument
     write(ADM_LOG_FID,'(i5,10f10.3)') nn, (tvsdat_org(tvsch(ic,nn),1,nn,1),ic=1,ntvsch(nn))
   end do
@@ -739,7 +728,6 @@ program prg_obsope_amsua
   FLUSH(ADM_LOG_FID)
   call GTL_input_var2(trim(veg_base), veg, veg_pl, ADM_KNONE, ADM_KNONE, &
                       input_size=8, num=1)
-  !call GTL_input_var2(trim(veg_base), veg, veg_pl, ADM_KNONE, ADM_KNONE, 8)
 
   icoland(:,:) = 1
   do l=1, ADM_lall
@@ -757,8 +745,6 @@ program prg_obsope_amsua
      !
      call MPI_ALLREDUCE(max_num_latlon, sum_max_num_latlon, 1, MPI_INTEGER, &
             MPI_SUM, MPI_COMM_WORLD, ierr)
-     !write(ADM_LOG_FID,*) 'max_num_latlon: ', ADM_prc_me, max_num_latlon
-     !
      if(sum_max_num_latlon /= nsite) then
         write(ADM_LOG_FID,*) 'sum_max_num_latlon /= nsite', sum_max_num_latlon, nsite
         call ADM_proc_stop
@@ -1077,18 +1063,14 @@ program prg_obsope_amsua
                                        + fac2 * icodata4(n2_index(i),k,l) &
                                        + fac3 * icodata4(n3_index(i),k,l) &
                                        ) / fac_sum
-                      !obsdata(k,i,v) = exp(obsdata(i))*kfact(i)
                    end do
                    if(trim(var_name(v))=='ms_pres' .or. trim(var_name(v))=='ss_ps') then
                       write(ADM_LOG_FID,*) trim(var_name(v)), minval(obsdata(1:kmax,i,v)), maxval(obsdata(1:kmax,i,v))
                       flush(ADM_LOG_FID)
                       obsdata(1:kmax,i,v)=exp(obsdata(1:kmax,i,v))
-                      !obsdata(:,i,v)=exp(obsdata(:,i,v))
                    else if(trim(var_name(v))=='ms_qv' &
-                      !.or. trim(var_name(v))=='ms_qc' &
                       .or. trim(var_name(v))=='ss_q2m' ) then
                       obsdata(1:kmax,i,v)=obsdata(1:kmax,i,v)*q2ppmv
-                      !obsdata(:,i,v)=obsdata(:,i,v)*q2ppmv
                    end if
                  end if
               end do
@@ -1105,10 +1087,6 @@ program prg_obsope_amsua
      enddo step_loop ! step LOOP
 
   enddo variable_loop ! variable LOOP
-
-  do v = 1, nvar
-     !write(ADM_LOG_FID,'(i6, 5f12.5)') v, (obsdata(1,k,v),k=1,5)
-  end do
 
   oqc(:,:)=0
 
@@ -1394,37 +1372,34 @@ program prg_obsope_amsua
     tmp_time(31)=MPI_WTIME()
     iobs=1
     do islot = 1, nslots
-      !do nn = 1, ninstrument
-        do n =  1, ntvsprof(nn,islot)
-          p_tmp(:)=log(real(obsdata_jprb(:,n,nn,id_pres_nicam,islot),kind=8))
-          do ichan = tvsch(1,nn), tvsch(ntvsch(nn),nn)
-            weight(1,ichan,n,nn,islot)= &
-                   -(tran_tmp(2,ichan,n,nn,islot)-tran_tmp(1,ichan,n,nn,islot))/&
-                    (p_tmp(nlev_RTTOV-1)-p_tmp(nlev_RTTOV))
-            do ilev = 2, nlev_RTTOV-1
-               weight(ilev,ichan,n,nn,islot)= &
-                   -(tran_tmp(ilev+1,ichan,n,nn,islot)-tran_tmp(ilev-1,ichan,n,nn,islot))/&
-                    (p_tmp(nlev_RTTOV-ilev)-p_tmp(nlev_RTTOV-ilev+2))
-            end do
-            weight(nlev_RTTOV,ichan,n,nn,islot)= &
-                   -(tran_tmp(nlev_RTTOV,ichan,n,nn,islot)-tran_tmp(nlev_RTTOV-1,ichan,n,nn,islot))/&
-                    (p_tmp(1)-p_tmp(2))
-            tmp_lev=-1.0
-            do ilev = 1, nlev_RTTOV
-               if( weight(ilev,ichan,n,nn,islot) > tmp_lev ) then
-                  weight_maxlev(ichan,n,nn,islot)=nlev_RTTOV-ilev+1
-                  tmp_lev=weight(ilev,ichan,n,nn,islot)
-               end if
-            end do
+      do n =  1, ntvsprof(nn,islot)
+        p_tmp(:)=log(real(obsdata_jprb(:,n,nn,id_pres_nicam,islot),kind=8))
+        do ichan = tvsch(1,nn), tvsch(ntvsch(nn),nn)
+          weight(1,ichan,n,nn,islot)= &
+                 -(tran_tmp(2,ichan,n,nn,islot)-tran_tmp(1,ichan,n,nn,islot))/&
+                  (p_tmp(nlev_RTTOV-1)-p_tmp(nlev_RTTOV))
+          do ilev = 2, nlev_RTTOV-1
+             weight(ilev,ichan,n,nn,islot)= &
+                 -(tran_tmp(ilev+1,ichan,n,nn,islot)-tran_tmp(ilev-1,ichan,n,nn,islot))/&
+                  (p_tmp(nlev_RTTOV-ilev)-p_tmp(nlev_RTTOV-ilev+2))
           end do
-          iobs=iobs+1
-        !end do
+          weight(nlev_RTTOV,ichan,n,nn,islot)= &
+                 -(tran_tmp(nlev_RTTOV,ichan,n,nn,islot)-tran_tmp(nlev_RTTOV-1,ichan,n,nn,islot))/&
+                  (p_tmp(1)-p_tmp(2))
+          tmp_lev=-1.0
+          do ilev = 1, nlev_RTTOV
+             if( weight(ilev,ichan,n,nn,islot) > tmp_lev ) then
+                weight_maxlev(ichan,n,nn,islot)=nlev_RTTOV-ilev+1
+                tmp_lev=weight(ilev,ichan,n,nn,islot)
+             end if
+          end do
+        end do
+        iobs=iobs+1
       end do
     end do
     tmp_time(32)=MPI_WTIME()
     sum_time(31)=sum_time(31)+(tmp_time(32)-tmp_time(31))
   
-    !nn=1
     do ichan = tvsch(1,nn), tvsch(ntvsch(nn),nn)
       write(*,*) 'channel', ichan
       do ilev = 1, nlev_RTTOV
@@ -1442,67 +1417,69 @@ program prg_obsope_amsua
   !
     iobs1=0
     do islot = 1, nslots
-      !do nn = 1, ninstrument
-        do n =  1, ntvsprof(nn,islot)
-          iobs1=iobs1+1
-          vbc_pred(1,:,n,nn,islot)=undef ! IWLR is depending on ch (calc. on part2)
-          vbc_pred(2,:,n,nn,islot)=undef ! IWLR is depending on ch (calc. on part2)
-          vbc_pred(3,:,n,nn,islot)=0.d0
-          vbc_pred(4,:,n,nn,islot)=(obsdata_out(1,iobs1,id_tsfc_nicam)-273.15d0)/10.d0
-          vbc_pred(5,:,n,nn,islot)=0.d0
-          vbc_pred(6,:,n,nn,islot)=obsdata_out(1,iobs1,id_cldw_nicam)/30.0d0
-          vbc_pred(7,:,n,nn,islot)=1.d0/cos(saza(n,nn,islot)*CNST_PI/180.d0)
-          vbc_pred(8,:,n,nn,islot)=0.d0
-          do ic = 1, ntvsch(nn)
-            iwlr=0.0d0
-            do ilev = 1, nlev-1
-              if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)>200.0d0 .and. &
-                 real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)<850.0d0) then
-                iwlr = iwlr &
-                     +(real(obsdata_jprb(ilev+1,n,nn,id_temp_nicam,islot),kind=8) &
-                      -real(obsdata_jprb(ilev  ,n,nn,id_temp_nicam,islot),kind=8))*&
-                       (tran_tmp(nlev-ilev  , tvsch(ic,nn),n,nn,islot)&
-                       -tran_tmp(nlev-ilev+1, tvsch(ic,nn),n,nn,islot))
-              end if
-            end do
-            vbc_pred(1,ic,n,nn,islot)=iwlr
+      do n =  1, ntvsprof(nn,islot)
+        iobs1=iobs1+1
+        vbc_pred(1,:,n,nn,islot)=undef ! IWLR is depending on ch (calc. on part2)
+        vbc_pred(2,:,n,nn,islot)=undef ! IWLR is depending on ch (calc. on part2)
+        vbc_pred(3,:,n,nn,islot)=undef ! IWLR is depending on ch (calc. on part2)
+        vbc_pred(4,:,n,nn,islot)=(obsdata_out(1,iobs1,id_tsfc_nicam)-273.15d0)/10.d0
+        vbc_pred(5,:,n,nn,islot)=0.d0
+        vbc_pred(6,:,n,nn,islot)=obsdata_out(1,iobs1,id_cldw_nicam)/30.0d0
+        vbc_pred(7,:,n,nn,islot)=1.d0/cos(saza(n,nn,islot)*CNST_PI/180.d0)
+        vbc_pred(8,:,n,nn,islot)=0.d0
+        do ic = 1, ntvsch(nn)
+          iwlr=0.0d0
+          do ilev = 1, nlev-1
+            if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)>200.0d0 .and. &
+               real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)<850.0d0) then
+              iwlr = iwlr &
+                   +(real(obsdata_jprb(ilev+1,n,nn,id_temp_nicam,islot),kind=8) &
+                    -real(obsdata_jprb(ilev  ,n,nn,id_temp_nicam,islot),kind=8))*&
+                     (tran_tmp(nlev-ilev  , tvsch(ic,nn),n,nn,islot)&
+                     -tran_tmp(nlev-ilev+1, tvsch(ic,nn),n,nn,islot))
+            end if
           end do
-          do ic = 1, ntvsch(nn)
-            iwlr=0.0d0
-            do ilev = 1, nlev-1
-              if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)>50.0d0.and. &
-                 real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)<200.0d0) then
-                iwlr = iwlr &
-                     +(real(obsdata_jprb(ilev+1,n,nn,id_temp_nicam,islot),kind=8)&
-                      -real(obsdata_jprb(ilev,n,nn,id_temp_nicam,islot),kind=8))*&
-                       (tran_tmp(nlev-ilev  , tvsch(ic,nn),n,nn,islot)&
-                       -tran_tmp(nlev-ilev+1, tvsch(ic,nn),n,nn,islot))
-              end if
-            end do
-            vbc_pred(2,ic,n,nn,islot)=iwlr
-          end do
+          vbc_pred(1,ic,n,nn,islot)=iwlr
         end do
-      !end do
+
+        do ic = 1, ntvsch(nn)
+          iwlr=0.0d0
+          do ilev = 1, nlev-1
+            if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)> 50.0d0.and. &
+               real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)<200.0d0) then
+              iwlr = iwlr &
+                   +(real(obsdata_jprb(ilev+1,n,nn,id_temp_nicam,islot),kind=8)&
+                    -real(obsdata_jprb(ilev,n,nn,id_temp_nicam,islot),kind=8))*&
+                     (tran_tmp(nlev-ilev  , tvsch(ic,nn),n,nn,islot)&
+                     -tran_tmp(nlev-ilev+1, tvsch(ic,nn),n,nn,islot))
+            end if
+          end do
+          vbc_pred(2,ic,n,nn,islot)=iwlr
+        end do
+
+        do ic = 1, ntvsch(nn)
+          iwlr=0.0d0
+          do ilev = 1, nlev-1
+            if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)> 5.0d0.and. &
+               real(obsdata_jprb(ilev,n,nn,id_pres_nicam,islot),kind=8)<50.0d0) then
+              iwlr = iwlr &
+                   +(real(obsdata_jprb(ilev+1,n,nn,id_temp_nicam,islot),kind=8)&
+                    -real(obsdata_jprb(ilev,n,nn,id_temp_nicam,islot),kind=8))*&
+                     (tran_tmp(nlev-ilev  , tvsch(ic,nn),n,nn,islot)&
+                     -tran_tmp(nlev-ilev+1, tvsch(ic,nn),n,nn,islot))
+            end if
+          end do
+          vbc_pred(3,ic,n,nn,islot)=iwlr
+        end do
+
+      end do
     end do
   
     tmp_time(34)=MPI_WTIME()
     sum_time(33)=sum_time(33)+(tmp_time(34)-tmp_time(33))
     CALL vbc_read('vbcf_coef.txt',0,vbcf)
     CALL vbc_scan_read('vbcf_scanbias_coef.txt',0,vbcf_scan)
-
-    
-!    write(ADM_LOG_FID,*) '### READING SCAN BIAS'
-!    do ic = 1, ntvsch(nn)
-!      write(ADM_LOG_FID,'(2i5,30F6.2)') nn, ic, (vbcf_scan(ifoot,ic,nn),ifoot=1,nfootp(nn))
-!    end do 
-!
-!    write(ADM_LOG_FID,*) '### BEFORE normalize', sum(vbcf_scan(1:nfootp(nn),1,nn))/real(nfootp(nn)-6)
-!    do ic=1,ntvsch(nn)
-!      vbcf_scan(1:nfootp(nn),ic,nn) = vbcf_scan(1:nfootp(nn),ic,nn) - &
-!                                  sum(vbcf_scan(1:nfootp(nn),ic,nn)) / real(nfootp(nn)-6)
-!    end do
-!    write(ADM_LOG_FID,*) '###  AFTER normalize', sum(vbcf_scan(1:nfootp(nn),1,nn))/real(nfootp(nn)-6)
-!  
+  
     tmp_time(35)=MPI_WTIME()
     sum_time(34)=sum_time(34)+(tmp_time(35)-tmp_time(34))
 
@@ -1512,9 +1489,7 @@ program prg_obsope_amsua
         do ic=1,ntvsch(nn)
           ichan=tvsch(ic,nn)
           if(ichan<=9) then
-          !tvsdat(ic,n,nn,islot)=tvsdat(ic,n,nn,islot)-vbcf_scan(ifoot,ic,nn)
             tvsdat(ichan,n,nn,islot)=tvsdat_org(ichan,n,nn,islot)-vbcf_scan(ifoot,ic,nn)
-            !bt_tmp(ichan,n,nn,islot)=bt_tmp(ichan,n,nn,islot)-vbcf_scan(ifoot,ic,nn)
           end if
         end do
       end do
@@ -1524,15 +1499,9 @@ program prg_obsope_amsua
       do n =  1, ntvsprof(nn,islot)
         do ic=1,ntvsch(nn)
           ichan=tvsch(ic,nn)
-          !tvsdat(ic,n,nn,islot)=tvsdat(ic,n,nn,islot)+&
           if(ichan<=9) then
             tvsdat(ichan,n,nn,islot)=tvsdat(ichan,n,nn,islot)+&
                      sum(vbc_pred(:,ic,n,nn,islot)*vbcf(:,ic,nn))
-            !bt_tmp(ichan,n,nn,islot)=bt_tmp(ichan,n,nn,islot)+&
-            !         sum(vbc_pred(:,ic,n,nn,islot)*vbcf(:,ic,nn))
-            !write(ADM_LOG_FID,'(3i5,9F8.3)') islot, n, ic, &
-            !       (vbc_pred(i,ic,n,nn,islot)*vbcf(i,ic,nn),i=1,8), &
-            !       bt_tmp(tvsch(ic,nn),n,nn,islot)
           end if
         end do
       end do
@@ -1638,92 +1607,73 @@ program prg_obsope_amsua
           !end if
           if(tvslat(n,nn,islot)<-60.0) tvsqc(ic,n,nn,islot)=0
           if(tvslat(n,nn,islot)> 60.0) tvsqc(ic,n,nn,islot)=0
-          !if(tvsdat(ic,n,nn,islot)<100.0 .or. tvsdat(ic,n,nn,islot)>400.0) then
-          !  tvsqc(ic,n,nn,islot)=0
-          !end if
         end do
       end do
     end do
 
     i=1
     islot=1
-    !do nn = 1, ninstrument
-      write(cfile(1:4),'(A4)') tvsname(nn)
-      outbase =trim(outfile_dir)//'/'//trim(cfile)//trim(outfile_prefix)//trim(cimem)
-      ofid = 1
-      write(*,*) 'Output: ', trim(outbase)//'.dat'
-      open( unit   = ofid,                  &
-            file   = trim(outbase)//'.dat', &
-            form   = 'unformatted',         &
-            access = 'sequential',          &
-            status = 'unknown'              )
-      do n = 1, ntvsprof(nn,islot)
-        write(ofid) real(elem(i)),             &
-                    real(lsql(n,nn,islot)), &
-                    real(tvslon(n,nn,islot)), &
-                    real(tvslat(n,nn,islot)), &
-                    real(saza(n,nn,islot)), &
-                    real(obsdata_out(1,i,id_tsfc_nicam)), &
-                    real(0.0), &
-                    real(tvsfoot(n,nn,islot)), &
-                    real(obsdata_out(weight_maxlev(tvsch(1:ntvsch(nn),nn),n,nn,islot),i,id_pres_nicam)),&
-                    real(tvsdat(tvsch(1:ntvsch(nn),nn),n,nn,islot)),   &
-                    !real(tvsdat(tvsch(1,nn):tvsch(ntvsch(nn),nn),n,nn,islot)),   &
-                    !real(tvsdat(1:ntvsch(nn),n,nn,islot)),   &
-                    real(tvserr(1:ntvsch(nn),n,nn,islot)),   &
-                    real(bt_tmp(tvsch(1:ntvsch(nn),nn),n,nn,islot)), &
-                    real( tvsqc(1:ntvsch(nn),n,nn,islot))
-                    !real( tvsqc(tvsch(1,nn):tvsch(ntvsch(nn),nn),n,nn,islot))
-                    !real( tvsqc(tvsch(1,nn):tvsch(ntvsch(nn),nn),n,nn,islot)),   &
-                    !real(weight(nlev:1:-1,tvsch(1:ntvsch(nn),nn),n,nn,islot))
-        i=i+1
-      enddo
-      close(ofid)
-    !enddo
+    write(cfile(1:4),'(A4)') tvsname(nn)
+    outbase =trim(outfile_dir)//'/'//trim(cfile)//trim(outfile_prefix)//trim(cimem)
+    ofid = 1
+    write(*,*) 'Output: ', trim(outbase)//'.dat'
+    open( unit   = ofid,                  &
+          file   = trim(outbase)//'.dat', &
+          form   = 'unformatted',         &
+          access = 'sequential',          &
+          status = 'unknown'              )
+    do n = 1, ntvsprof(nn,islot)
+      write(ofid) real(elem(i)),             &
+                  real(lsql(n,nn,islot)), &
+                  real(tvslon(n,nn,islot)), &
+                  real(tvslat(n,nn,islot)), &
+                  real(saza(n,nn,islot)), &
+                  real(obsdata_out(1,i,id_tsfc_nicam)), &
+                  real(0.0), &
+                  real(tvsfoot(n,nn,islot)), &
+                  real(obsdata_out(weight_maxlev(tvsch(1:ntvsch(nn),nn),n,nn,islot),i,id_pres_nicam)),&
+                  real(tvsdat(tvsch(1:ntvsch(nn),nn),n,nn,islot)),   &
+                  real(tvserr(1:ntvsch(nn),n,nn,islot)),   &
+                  real(bt_tmp(tvsch(1:ntvsch(nn),nn),n,nn,islot)), &
+                  real( tvsqc(1:ntvsch(nn),n,nn,islot))
+      i=i+1
+    enddo
+    close(ofid)
 
-    close(1)
     tmp_time(37)=MPI_WTIME()
     sum_time(36)=sum_time(36)+(tmp_time(37)-tmp_time(36))
-!
-    !if(ocheck) then
-      i=1
-      !do nn = 1, ninstrument
-        write(cfile(1:4),'(A4)') tvsname(nn)
-        outbase2 = trim(outfile_dir)//'/'//trim(cfile)//trim(outfile_prefix)//trim(cimem)
-        !outbase2 = trim(outfile_dir)//'/'//trim(cfile)//trim(outfile_prefix)
-        ofid2 = 2
-        write(ADM_LOG_FID,*) 'nn=', nn
-        write(ADM_LOG_FID,*) 'ntvsch(nn)=', ntvsch(nn)
-        write(ADM_LOG_FID,*) 'tvsch=', tvsch(1:ntvsch(nn),nn)
-        write(*,*) 'Output: ', trim(outbase2)//'.txt'
-  !
-        open( unit   = ofid2,                   &
-              file   = trim(outbase2)//'.txt', &
-              form   = 'formatted',            &
-              status = 'unknown'              )
-        write(ofid2,*) 'nn=', nn
-        write(ofid2,*) 'ntvsch(nn)=', ntvsch(nn)
-        write(ofid2,*) 'tvsch=', tvsch(1:ntvsch(nn),nn)
-        do n = 1, ntvsprof(nn,islot)
-          write(ofid2,'(33F8.2)') &
-                    real(lsql(n,nn,islot)), &
-                    real(tvslon(n,nn,islot)), &
-                    real(tvslat(n,nn,islot)), &
-                    real(saza(n,nn,islot)), &
-                    real(obsdata_out(1,i,id_tsfc_nicam)), &
-                    real(0.0), &
-                    real(obsdata_out(weight_maxlev(tvsch(1:ntvsch(nn),nn),n,nn,islot),i,id_pres_nicam)),&
-                    !real(tvsdat(1:ntvsch(nn),n,nn,islot)),   &
-                    !real(tvsdat(tvsch(1,nn):tvsch(ntvsch(nn),nn),n,nn,islot)),   &
-                    real(tvsdat(tvsch(1:ntvsch(nn),nn),n,nn,islot)),   &
-                    real(bt_tmp(tvsch(1:ntvsch(nn),nn),n,nn,islot)),   &
-                    real( tvsqc(1:ntvsch(nn),n,nn,islot)),             &
-                    real(tvsfoot(n,nn,islot))
-          i=i+1
-        end do
-      !end do
-      close(ofid2)
-    !end if ! ocheck
+
+    i=1
+    write(cfile(1:4),'(A4)') tvsname(nn)
+    outbase2 = trim(outfile_dir)//'/'//trim(cfile)//trim(outfile_prefix)//trim(cimem)
+    ofid2 = 2
+    write(ADM_LOG_FID,*) 'nn=', nn
+    write(ADM_LOG_FID,*) 'ntvsch(nn)=', ntvsch(nn)
+    write(ADM_LOG_FID,*) 'tvsch=', tvsch(1:ntvsch(nn),nn)
+    write(*,*) 'Output: ', trim(outbase2)//'.txt'
+    open( unit   = ofid2,                   &
+          file   = trim(outbase2)//'.txt', &
+          form   = 'formatted',            &
+          status = 'unknown'              )
+    write(ofid2,*) 'nn=', nn
+    write(ofid2,*) 'ntvsch(nn)=', ntvsch(nn)
+    write(ofid2,*) 'tvsch=', tvsch(1:ntvsch(nn),nn)
+    do n = 1, ntvsprof(nn,islot)
+      write(ofid2,'(33F8.2)') &
+                real(lsql(n,nn,islot)), &
+                real(tvslon(n,nn,islot)), &
+                real(tvslat(n,nn,islot)), &
+                real(saza(n,nn,islot)), &
+                real(obsdata_out(1,i,id_tsfc_nicam)), &
+                real(0.0), &
+                real(obsdata_out(weight_maxlev(tvsch(1:ntvsch(nn),nn),n,nn,islot),i,id_pres_nicam)),&
+                real(tvsdat(tvsch(1:ntvsch(nn),nn),n,nn,islot)),   &
+                real(bt_tmp(tvsch(1:ntvsch(nn),nn),n,nn,islot)),   &
+                real( tvsqc(1:ntvsch(nn),n,nn,islot)),             &
+                real(tvsfoot(n,nn,islot))
+      i=i+1
+    end do
+    close(ofid2)
 
     tmp_time(38)=MPI_WTIME()
     sum_time(37)=sum_time(37)+(tmp_time(38)-tmp_time(37))
@@ -1737,10 +1687,9 @@ program prg_obsope_amsua
   deallocate( tran) 
   deallocate( tran_tmp) 
   deallocate( hx )
-  !deallocate( dtau )
   tmp_time(11)=MPI_WTIME()
   sum_time(6)=sum_time(6)+(tmp_time(11)-tmp_time(10))
-  end do
+  end do  ! Member loop
   tmp_time(12)=MPI_WTIME()
 
   call MPI_BARRIER(MPI_COMM_WORLD, ierr)
@@ -1748,11 +1697,6 @@ program prg_obsope_amsua
   write(ADM_LOG_FID,'(A,F15.5)') '##### Initialize:        ', tmp_time(2)-tmp_time(1)
   write(ADM_LOG_FID,'(A,F15.5)') '##### Read obs:          ', tmp_time(3)-tmp_time(2)
   write(ADM_LOG_FID,'(A,F15.5)') '##### Calc coef:         ', tmp_time(4)-tmp_time(3)
-  !write(ADM_LOG_FID,'(A,F15.5)') '##### Prepare read gues: ', tmp_time(5)-tmp_time(4)
-  !write(ADM_LOG_FID,'(A,F15.5)') '##### Communication:     ', tmp_time(6)-tmp_time(5)
-  !write(ADM_LOG_FID,'(A,F15.5)') '##### rttov computation: ', tmp_time(7)-tmp_time(6)
-  !write(ADM_LOG_FID,'(A,F15.5)') '##### Communication:     ', tmp_time(8)-tmp_time(7)
-  !write(ADM_LOG_FID,'(A,F15.5)') '##### VBC and output:    ', tmp_time(9)-tmp_time(8)
   write(ADM_LOG_FID,'(A,F15.5)') '##### Prepare read gues: ', sum_time(1)
   write(ADM_LOG_FID,'(A,F15.5)') '##### Read Gues:         ', sum_time(2)
   write(ADM_LOG_FID,'(A,F15.5)') '##### Communication:     ', sum_time(3)
@@ -2672,90 +2616,6 @@ contains
     end do
     !
   end subroutine setup_ico2latlon_mapping
-!-----------------------------------------------------------------------
-! LIST ASSIMILATED INSTRUMENT CHANNELS
-!-----------------------------------------------------------------------
-!SUBROUTINE set_instrument
-!  tvsch = 0
-  !
-  ! NOAA-15 AMSU-A
-  !
-!  tvsname(1) = 'AA15'
-!  tvsinst(1,1) = rttv_plat_noaa
-!  tvsinst(2,1) = 15
-!  tvsinst(3,1) = rttv_inst_amsua
-!  tvsch( 1,1)  =  5
-!  tvsch( 2,1)  =  6
-!  tvsch( 1,1)  =  7
-!  tvsch( 2,1)  =  8
-!  tvsch( 5,1)  =  9
-!  tvsch( 6,1)  = 10
-!  tvsch( 7,1)  = 11
-!  ntvsch(1)=2
-  !
-  ! NOAA-16 AMSU-A
-  !
-!  tvsname(2) = 'AA16'
-!  tvsinst(1,2) = rttv_plat_noaa
-!  tvsinst(2,2) = 16
-!  tvsinst(3,2) = rttv_inst_amsua
-!  tvsch( 1,2)  =  5
-!  tvsch( 2,2)  =  6
-!  tvsch( 1,2)  =  7
-!  tvsch( 2,2)  =  8
-!  tvsch( 5,2)  =  9
-!  tvsch( 6,2)  = 10
-!  tvsch( 7,2)  = 11
-!  ntvsch(2)=2
-  !
-  ! NOAA-18 AMSU-A
-  !
-!  tvsname(3) = 'AA18'
-!  tvsinst(1,3) = rttv_plat_noaa
-!  tvsinst(2,3) = 18
-!  tvsinst(3,3) = rttv_inst_amsua
-!  tvsch( 1,3)  =  5
-!!  tvsch( 2,3)  =  6
-!  tvsch( 1,3)  =  7
-!  tvsch( 2,3)  =  8
-!  tvsch( 5,3)  =  9
-!  tvsch( 6,3)  = 10
-!  tvsch( 7,3)  = 11
-!  ntvsch(3)=2
-  !
-  ! NOAA-19 AMSU-A
-  !
-!  tvsname(4) = 'AA19'
-!  tvsinst(1,4) = rttv_plat_noaa
-!  tvsinst(2,4) = 19
-!  tvsinst(3,4) = rttv_inst_amsua
-!  tvsch( 1,4)  =  5
-!  tvsch( 2,4)  =  6
-!  tvsch( 1,4)  =  7
-!  tvsch( 2,4)  =  8
-!  tvsch( 5,4)  =  9
-!  tvsch( 6,4)  = 10
-!  tvsch( 7,4)  = 11
-!  ntvsch(4)=2
-!  !
-!  ! METOP-2 AMSU-A
-!  !
-!  tvsname(5) = 'MA02'
-!  tvsinst(1,5) = rttv_plat_metop2
-!  tvsinst(2,5) = 19
-!  tvsinst(3,5) = rttv_inst_amsua
-!  tvsch(1,5)  = 4
-!  tvsch(2,5)  = 5
-!  tvsch(3,5)  = 6
-!  tvsch(4,5)  = 8
-!  tvsch(5,5)  = 9
-!  tvsch(6,5)  = 10
-!  tvsch(7,5)  = 11
-!  tvsch(8,5)  = 12
-!  tvsch(9,5)  = 13
-!  ntvsch(5)=9
-!  RETURN
-!END SUBROUTINE set_instrument
 !-----------------------------------------------------------------------
 SUBROUTINE vbc_read(filename,basetime,vbc)
   USE rttov_const,ONLY: nplatforms,platform_name,ninst,inst_name

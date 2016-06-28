@@ -509,10 +509,6 @@ program prg_vbc
 
   rewind(ADM_CTL_FID)
   read(ADM_CTL_FID, nml=obsope_param, iostat=ierr)
-  !rttovcoef_fname(1)='/scratch/ra000015/koji/LETKF/run_4d/letkf/rttov/rtcoef_noaa_15_amsua.dat'
-  !rttovcoef_fname(2)='/scratch/ra000015/koji/LETKF/run_4d/letkf/rttov/rtcoef_noaa_16_amsua.dat'
-  !rttovcoef_fname(3)='/scratch/ra000015/koji/LETKF/run_4d/letkf/rttov/rtcoef_noaa_18_amsua.dat'
-  !rttovcoef_fname(4)='/scratch/ra000015/koji/LETKF/run_4d/letkf/rttov/rtcoef_noaa_19_amsua.dat'
 
   write(ADM_LOG_FID,*) trim(rttovcoef_fname(1))
   write(ADM_LOG_FID,*) trim(rttovcoef_fname(2))
@@ -533,7 +529,6 @@ program prg_vbc
   read(fid) num_satellite
   read(fid) nsite
   read(fid) ntvs(1:ninstrument)
-  !read(fid) nobs_noaa15, nobs_noaa16, nobs_noaa18, nobs_noaa19, nobs_metop2
   maxtvsprof=maxval(ntvs)
   maxtvsfoot=maxval(nfootp)
   nsite=sum(ntvs)
@@ -543,9 +538,6 @@ program prg_vbc
   write(ADM_LOG_FID,*) 'maxtvsprof=   ', maxtvsprof
   write(ADM_LOG_FID,*) 'maxtvsfoot=   ', maxtvsfoot
   FLUSH(ADM_LOG_FID)
-  !write(ADM_LOG_FID,*) nobs_noaa15, nobs_noaa16, nobs_noaa18, nobs_noaa19, nobs_metop2
-
-  !call get_nsite(fid,nsite) ! number of observation
 
   allocate( tvslat(maxtvsprof,ninstrument,nslots) )
   allocate( tvslon(maxtvsprof,ninstrument,nslots) )
@@ -702,8 +694,6 @@ program prg_vbc
     end do
   end do
   tvserr(:,:,:,:)=0.5d0
-  !tvserr(:,:,:,:)=0.4d0
-  !tvserr(:,:,:,:)=0.35d0
 
   do nn = 1, ninstrument
     do ic = 1, ntvsch(nn)
@@ -715,15 +705,6 @@ program prg_vbc
   do nn = 1, ninstrument
     write(ADM_LOG_FID,'(i5,10f10.3)') nn, (tvsdat(tvsch(ic,nn),1,nn,1),ic=1,ntvsch(nn))
   end do
-
-!  do nn = 1, ninstrument
-!    tvserr(1,:,nn,:)=0.3
-!    tvserr(2,:,nn,:)=0.2
-!    tvserr(3,:,nn,:)=0.25
-!    tvserr(4,:,nn,:)=0.28
-!    tvserr(5,:,nn,:)=0.3
-!    tvserr(6,:,nn,:)=0.4
-!  end do
 
   call GTL_input_var2(trim(veg_base), veg, veg_pl, ADM_KNONE, ADM_KNONE, 8)
 
@@ -1114,9 +1095,7 @@ program prg_vbc
     end do
   end do
 
-  !allocate( bt(15,nsite) )
   allocate( bt(15,maxtvsprof,ninstrument,nslots) )
-  !allocate( bt_tmp(15,nsite) )
   allocate( bt_tmp(maxtvsch,maxtvsprof,ninstrument,nslots) )
   allocate( tran(nlev,15,maxtvsprof,ninstrument,nslots) )
 
@@ -1128,7 +1107,6 @@ program prg_vbc
   end do
 
   if( ADM_prc_me == 1 ) then
-    !if(nobs_noaa15 /= 0 ) then
     if(ntvs(1) /= 0 ) then
       WRITE(ADM_LOG_FID,*) 'NOAA-15', ntvs(1)
       FLUSH(ADM_LOG_FID)
@@ -1356,7 +1334,7 @@ program prg_vbc
         iobs1=iobs1+1
         vbc_pred(1,:,n,nn,1)=undef ! IWLR is depending on ch (calc. on part2)
         vbc_pred(2,:,n,nn,1)=undef
-        vbc_pred(3,:,n,nn,1)=0.d0
+        vbc_pred(3,:,n,nn,1)=undef
         vbc_pred(4,:,n,nn,1)=(obsdata_out(1,iobs1,id_tsfc_nicam)-273.15d0)/10.d0
         vbc_pred(5,:,n,nn,1)=0.d0
         vbc_pred(6,:,n,nn,1)=obsdata_out(1,iobs1,id_cldw_nicam)/30.0d0
@@ -1376,6 +1354,7 @@ program prg_vbc
           end do
           vbc_pred(1,ic,n,nn,1)=iwlr
         end do
+        
         do ic = 1, ntvsch(nn)
           iwlr=0.0d0
           do ilev = 1, nlev-1
@@ -1391,21 +1370,27 @@ program prg_vbc
           vbc_pred(2,ic,n,nn,1)=iwlr
         end do
 
+        do ic = 1, ntvsch(nn)
+          iwlr=0.0d0
+          do ilev = 1, nlev-1
+            if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam),kind=8)> 5.0d0   .and.&
+               real(obsdata_jprb(ilev,n,nn,id_pres_nicam),kind=8)<50.0d0) then
+              iwlr = iwlr &
+                   +(real(obsdata_jprb(ilev+1,n,nn,id_temp_nicam),kind=8)   &
+                    -real(obsdata_jprb(ilev  ,n,nn,id_temp_nicam),kind=8))* &
+                    (tran(nlev-ilev  , tvsch(ic,nn),n,nn,1)&
+                    -tran(nlev-ilev+1, tvsch(ic,nn),n,nn,1))
+            end if
+          end do
+          vbc_pred(3,ic,n,nn,1)=iwlr
+        end do
+
       end do
     end do
 
     CALL vbc_read('vbcf_coef.txt',0,vbc)
   
     CALL vbc_scan_read('vbcf_scanbias_coef.txt',0,vbcf_scan)
-
-!    do nn = 1, ninstrument
-!      write(ADM_LOG_FID,*) '### BEFORE normalize', sum(vbcf_scan(1:nfootp(nn),1,nn))/real(nfootp(nn)-6)
-!      do ichan=1,ntvsch(nn)
-!        vbcf_scan_tmp(1:nfootp(nn),ichan,nn) = vbcf_scan(1:nfootp(nn),ichan,nn) - &
-!                                        sum(vbcf_scan(1:nfootp(nn),ichan,nn)) / real(nfootp(nn)-6)
-!      end do
-!      write(ADM_LOG_FID,*) '###  AFTER normalize',sum(vbcf_scan_tmp(1:nfootp(nn),1,nn))/real(nfootp(nn)-6)
-!    end do
 
     do nn = 1, ninstrument
       do n =  1, ntvs(nn)
@@ -1419,10 +1404,6 @@ program prg_vbc
       end do
     end do
 
-!    do nn = 1, ninstrument
-!      write(ADM_LOG_FID,*) maxval(tvsdat(1:ntvsch(nn),1:ntvs(nn),nn,1))
-!      write(ADM_LOG_FID,*) minval(tvsdat(1:ntvsch(nn),1:ntvs(nn),nn,1))
-!    end do
     do nn = 1, ninstrument
       do n =  1, ntvs(nn)
         do ic=1,ntvsch(nn)
@@ -1435,10 +1416,6 @@ program prg_vbc
       end do
     end do
 
-!    do nn = 1, ninstrument
-!      write(ADM_LOG_FID,*) maxval(tvsdat(1:ntvsch(nn),1:ntvs(nn),nn,1))
-!      write(ADM_LOG_FID,*) minval(tvsdat(1:ntvsch(nn),1:ntvs(nn),nn,1))
-!    end do
     bt_tmp(:,:,:,:)=0.0d0
     do nn = 1, ninstrument
       do n =  1, ntvs(nn)
@@ -1448,10 +1425,6 @@ program prg_vbc
       end do
     end do
 
-!    do nn = 1, ninstrument
-!      write(ADM_LOG_FID,*) maxval(tvsdat(1:ntvsch(nn),1:ntvs(nn),nn,1))
-!      write(ADM_LOG_FID,*) minval(tvsdat(1:ntvsch(nn),1:ntvs(nn),nn,1))
-!    end do
     do nn = 1, ninstrument
       do n =  1, ntvsprof(nn)
         !! [QUALITY CHECK FOR AMSU-A]
@@ -2518,90 +2491,6 @@ contains
 
     return
   end subroutine get_variable
-!-----------------------------------------------------------------------
-! LIST ASSIMILATED INSTRUMENT CHANNELS
-!-----------------------------------------------------------------------
-!SUBROUTINE set_instrument
-!  tvsch = 0
-  !
-  ! NOAA-15 AMSU-A
-  !
-!  tvsname(1) = 'AA15'
-!  tvsinst(1,1) = rttv_plat_noaa
-!  tvsinst(2,1) = 15
-!  tvsinst(3,1) = rttv_inst_amsua
-!  tvsch( 1,1)  =  5
-!  tvsch( 2,1)  =  6
-!  tvsch( 1,1)  =  7
-!  tvsch( 2,1)  =  8
-!  tvsch( 5,1)  =  9
-!  tvsch( 6,1)  = 10
-!  tvsch( 7,1)  = 11
-!  ntvsch(1)=2
-  !
-  ! NOAA-16 AMSU-A
-  !
-!  tvsname(2) = 'AA16'
-!  tvsinst(1,2) = rttv_plat_noaa
-!  tvsinst(2,2) = 16
-!  tvsinst(3,2) = rttv_inst_amsua
-!  tvsch( 1,2)  =  5
-!  tvsch( 2,2)  =  6
-!  tvsch( 1,2)  =  7
-!  tvsch( 2,2)  =  8
-!  tvsch( 5,2)  =  9
-!  tvsch( 6,2)  = 10
-!  tvsch( 7,2)  = 11
-!  ntvsch(2)=2
-  !
-  ! NOAA-18 AMSU-A
-  !
-!  tvsname(3) = 'AA18'
-!  tvsinst(1,3) = rttv_plat_noaa
-!  tvsinst(2,3) = 18
-!  tvsinst(3,3) = rttv_inst_amsua
-!  tvsch( 1,3)  =  5
-!  tvsch( 2,3)  =  6
-!  tvsch( 1,3)  =  7
-!  tvsch( 2,3)  =  8
-!  tvsch( 5,3)  =  9
-!  tvsch( 6,3)  = 10
-!  tvsch( 7,3)  = 11
-!  ntvsch(3)=2
-  !
-  ! NOAA-19 AMSU-A
-  !
-!  tvsname(4) = 'AA19'
-!  tvsinst(1,4) = rttv_plat_noaa
-!  tvsinst(2,4) = 19
-!  tvsinst(3,4) = rttv_inst_amsua
-!  tvsch( 1,4)  =  5
-!  tvsch( 2,4)  =  6
-!  tvsch( 1,4)  =  7
-!  tvsch( 2,4)  =  8
-!  tvsch( 5,4)  =  9
-!  tvsch( 6,4)  = 10
-!  tvsch( 7,4)  = 11
-!  ntvsch(4)=2
-!  !
-!  ! METOP-2 AMSU-A
-!  !
-!  tvsname(5) = 'MA02'
-!  tvsinst(1,5) = rttv_plat_metop2
-!  tvsinst(2,5) = 19
-!  tvsinst(3,5) = rttv_inst_amsua
-!  tvsch(1,5)  = 4
-!  tvsch(2,5)  = 5
-!  tvsch(3,5)  = 6
-!  tvsch(4,5)  = 8
-!  tvsch(5,5)  = 9
-!  tvsch(6,5)  = 10
-!  tvsch(7,5)  = 11
-!  tvsch(8,5)  = 12
-!  tvsch(9,5)  = 13
-!  ntvsch(5)=9
-!  RETURN
-!END SUBROUTINE set_instrument
 !-----------------------------------------------------------------------
 SUBROUTINE vbc_read(filename,basetime,vbc)
   USE rttov_const,ONLY: nplatforms,platform_name,ninst,inst_name
