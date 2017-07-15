@@ -11,7 +11,7 @@ program main
        ADM_setup,              &
        ADM_MULTI_PRC,          &
        ADM_proc_init,          &
-       ADM_proc_stop,          &
+       ADM_proc_finish,        &
        ADM_prc_me,             &
        ADM_prc_run_master,     &
        ADM_prc_run_all,        &
@@ -115,6 +115,7 @@ program main
   integer, allocatable :: num(:,:,:,:)
 
   integer :: g, k, l
+  integer :: i
 
   namelist / makemean_param / &
     nmem,                     &
@@ -123,13 +124,13 @@ program main
     cdate14
 
   call ADM_proc_init(ADM_MULTI_PRC)
-  call ADM_setup('makemean.cnf')
+  call ADM_setup('nhm_driver.cnf')
   call COMM_setup
+  call FIO_setup
   call GRD_setup
   call GMTR_setup
   call OPRT_setup
   call VMTR_setup
-  call FIO_setup
 
   glevel = ADM_glevel
   rlevel = ADM_rlevel
@@ -268,81 +269,152 @@ program main
 
   ctime=0
 
+  i=1
   call FIO_output( mean(:,ksta(1):kend(1),:,1),output_fname, desc, '',  &
                   'glg', 'Soil Temperature', '', 'K',                &
                    FIO_REAL8, 'GLKGMAX', 1, kgmax, 1, ctime, ctime   )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(2):kend(2),:,1),output_fname, desc, '',  &
                   'glw', 'Soil Moisture', '', 'm3/m3',               &
                    FIO_REAL8, 'GLKWMAX', 1, kwmax, 1, ctime, ctime   )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(3):kend(3),:,1),output_fname, desc, '',  &
                   'glts', 'Land Skin Temperature', '', 'K',          &
                    FIO_REAL8, 'GLLTSFC', 1, ltsfc, 1, ctime, ctime   )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(4):kend(4),:,1),output_fname, desc, '',  &
                   'gltc', 'Canopy Temperature', '', 'K',             &
                    FIO_REAL8, 'GLLTSFC', 1, ltsfc, 1, ctime, ctime   )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(5):kend(5),:,1),output_fname, desc, '',  &
                   'glwc', 'Canopy Water', '', 'm3/m2',               &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime        )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(6):kend(6),:,1),output_fname, desc, '',  &
                   'glsnw', 'Land Snow Amount', '', 'kg/m2',          &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime        )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(7):kend(7),:,1),output_fname, desc, '',  &
                   'gltsn', 'Land Snow Temperature', '', 'K',         &
                    FIO_REAL8, 'GLKSNMAX', 1, ksnmax, 1, ctime, ctime )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(8):kend(8),:,1),output_fname, desc, '',  &
                   'glfrs', 'Soil Ice', '', 'm3/m3',                  &
                    FIO_REAL8, 'GLKWMAX', 1, kwmax, 1, ctime, ctime   )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(9):kend(9),:,1),output_fname, desc, '',  &
                   'glasn', 'Land Snow Albedo', '', '0-1',            &
                    FIO_REAL8, 'GLALB', 1, nrbnd, 1, ctime, ctime     )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(10):kend(10),:,1),output_fname, desc, '',  &
                   'snrtco', 'Canopy Snow Fraction', '', '0-1',       &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime        )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(11):kend(11),:,1),output_fname, desc, '',  &
                   'albsfc', 'Albedo', '', '0-1',                       &
                    FIO_REAL8, 'GRALB', 1, nrbnd*nrdir, 1, ctime, ctime )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
 
   call FIO_output( mean(:,ksta(12):kend(12),:,1),output_fname, desc, '',  &
                   'tem_sfc', 'Surface Temperature', '', 'K', &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
 
   call FIO_output( mean(:,ksta(13):kend(13),:,1),output_fname, desc, '',  &
                   'gosst', 'Sea Surface Temperature', '', 'K', &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(14):kend(14),:,1),output_fname, desc, '',  &
                   'goice', 'Sea Ice Mass', '', 'kg/m2',        &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(15):kend(15),:,1),output_fname, desc, '',  &
                   'goicr', 'Sea Ice Fraction', '', '0-1',      &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(16):kend(16),:,1),output_fname, desc, '',  &
                   'gosnw', 'Sea Surface Snow', '', 'kg/m2',    &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(17):kend(17),:,1),output_fname, desc, '',  &
                   'goist', 'Sea Ice Temperature', '', 'K',     &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
 
   call FIO_output( mean(:,ksta(18):kend(18),:,1),output_fname, desc, '',  &
                   'CBMFX', 'Cloud-base Mass Flux', '', 'kg/kg', &
                    FIO_REAL8, 'ZSALL40', 1, ADM_kall, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(19):kend(19),:,1),output_fname, desc, '',  &
                   'qked', 'Turbulent Kinetic Energy*2', '', 'J/kg', &
                    FIO_REAL8, 'ZSALL40', 1, ADM_kall, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(20):kend(20),:,1),output_fname, desc, '',  &
                   'tsqd', 'Variance of theta_l', '', 'K', &
                    FIO_REAL8, 'ZSALL40', 1, ADM_kall, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(21):kend(21),:,1),output_fname, desc, '',  &
                   'qsqd', 'Variance of Total Water(qw)', '', '', &
                    FIO_REAL8, 'ZSALL40', 1, ADM_kall, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
   call FIO_output( mean(:,ksta(22):kend(22),:,1),output_fname, desc, '',  &
                   'covd', 'Covarriance of qw and theta_l', '', 'K', &
                    FIO_REAL8, 'ZSALL40', 1, ADM_kall, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
 
   call FIO_output( mean(:,ksta(23):kend(23),:,1),output_fname, desc, '',  &
                    'ROUGHNESS_SEA', 'Sea Roughness Length', '', 'm', &
                    FIO_REAL8, 'ZSSFC1', 1, 1, 1, ctime, ctime  )
+  WRITE(ADM_LOG_FID,*) i
+  FLUSH(ADM_LOG_FID)
+  i=i+1
 
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-  call ADM_proc_stop
+  call ADM_proc_finish
 
 end program main

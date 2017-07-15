@@ -7,9 +7,9 @@ all:
 	pwd
 	cd nicam/letkf && $(MAKE)
 	pwd
-	cd nicam/tool && ${MAKE}
-	pwd
 	cd nicam/tool_letkf && ${MAKE}
+	pwd
+	cd nicam/obsope && ${MAKE}
 	pwd
 
 clean:
@@ -19,9 +19,9 @@ clean:
 	pwd
 	cd nicam/letkf && $(MAKE) clean
 	pwd
-	cd nicam/tool && $(MAKE) clean
-	pwd
 	cd nicam/tool_letkf && $(MAKE) clean
+	pwd
+	cd nicam/obsope && $(MAKE) clean
 	pwd
 	cd bin && rm *
 	pwd

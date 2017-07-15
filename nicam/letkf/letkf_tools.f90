@@ -208,10 +208,10 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
           CALL read_icogrd_legacy(inflfile,work3dg,work2dg)
         END IF
         CALL scatter_grd_mpi(0,work3dg,work2dg,work3d,work2d)
-        !where(work3d(:,:,:) > 1.2d0) work3d(:,:,:)=1.2d0
+        where(work3d(:,:,:) > 1.2d0)  work3d(:,:,:)=1.2d0
+        where(work2d(:,:)   > 1.2d0)  work2d(:,:)  =1.2d0
         where(work3d(:,:,:) < 0.95d0) work3d(:,:,:)=0.95d0
-        !where(work2d(:,:) > 1.2d0) work2d(:,:)=1.2d0
-        where(work2d(:,:) < 0.95d0) work2d(:,:)=0.95d0
+        where(work2d(:,:)   < 0.95d0) work2d(:,:)  =0.95d0
       ELSE
         WRITE(ADM_LOG_FID,'(2A)') '!!WARNING: no such file exist: ',inflfile
         FLUSH(ADM_LOG_FID)
@@ -544,6 +544,13 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         IF(anal3d(ij,ilev,m,iv3d_qv)<0.0d0) anal3d(ij,ilev,m,iv3d_qv)=0.0d0
         IF(anal3d(ij,ilev,m,iv3d_qc)<0.0d0) anal3d(ij,ilev,m,iv3d_qc)=0.0d0
       END DO
+    END DO
+  END DO
+
+  ! Added 2017.05.07 Koji
+  DO m = 1, nbv
+    DO ij = 1, nij1
+      IF(anal2d(ij,m,iv2d_q2m)<0.0d0) anal2d(ij,m,iv2d_q2m)=0.0d0
     END DO
   END DO
 !

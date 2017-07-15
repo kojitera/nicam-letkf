@@ -85,7 +85,7 @@ program prg_vbc
        tvsinst,        &
        tvsch,          &
        ntvsch,         &
-       ntvschan,       &
+       !ntvschan,       &   ! 2016.07.06 Koji
        nfootp
 
   !-----------------------------------------------------------------------------
@@ -211,7 +211,8 @@ program prg_vbc
   !real(kind=JPRB), allocatable :: saza(:), saaz(:), soza(:), soaz(:)
   !real(kind=JPRB), allocatable :: land(:), elev(:)
   !real(kind=JPRB), allocatable :: said(:)
-  real(8), allocatable :: saza(:), saaz(:), soza(:), soaz(:)
+  !real(8), allocatable :: saza(:), saaz(:), soza(:), soaz(:)
+  real(8), allocatable :: saza(:,:,:), saaz(:,:,:), soza(:,:,:), soaz(:,:,:) ! 2016.07.06
   real(8), allocatable :: land(:), elev(:)
   real(8), allocatable :: said(:)
   real(8), allocatable, save :: lsql(:,:,:)
@@ -323,8 +324,25 @@ program prg_vbc
   REAL(8),SAVE :: vbca(maxvbc,maxtvsch,ninstrument)
   REAL(8),SAVE :: vbcf_scan(maxfoot,maxtvsch,ninstrument)
   REAL(8),SAVE :: vbca_scan(maxfoot,maxtvsch,ninstrument)
+  REAL(8) :: vbca_scan_ave(maxfoot,maxtvsch,ninstrument)
+  REAL(8),SAVE :: vbca_scan_std(maxfoot,maxtvsch,ninstrument)
+  REAL(8),SAVE :: vbca_scan_tmp(maxtvsch,10000,maxfoot,ninstrument) ! 2016.07.04 Koji
+  INTEGER :: num_scan(maxfoot,maxtvsch,ninstrument)      ! 2016.07.04 Koji
+  !REAL(8),SAVE :: num_scan(maxfoot,maxtvsch,ninstrument)      ! 2016.07.04 Koji
+  REAL(8),SAVE :: num_scan_tmp(maxfoot,maxtvsch,ninstrument)  ! 2016.07.04 Koji
   REAL(8),SAVE :: vbcf_scan_tmp(maxfoot,maxtvsch,ninstrument)
+  REAL(8) :: lwp, dum, scanread(maxtvsch), qcread(maxtvsch)
+  INTEGER :: ios
   CHARACTER(4),SAVE :: tvsname_scan
+
+  CHARACTER(128)      :: scanbias_basename
+  CHARACTER(128)      :: scanbias_fname
+  CHARACTER(2)        :: cslot
+  CHARACTER(6)        :: cimem
+  INTEGER             :: imem, islots
+  INTEGER             :: nmem
+  INTEGER             :: slot
+  LOGICAL :: ex
 
   REAL(8),ALLOCATABLE,SAVE :: tvslon(:,:,:)
   REAL(8),ALLOCATABLE,SAVE :: tvslat(:,:,:)
@@ -334,6 +352,11 @@ program prg_vbc
   REAL(8),ALLOCATABLE,SAVE :: tvsqc(:,:,:,:)
   REAL(8),ALLOCATABLE,SAVE :: tvserr(:,:,:,:)
   REAL(8),ALLOCATABLE,SAVE :: tvsfoot(:,:,:)
+
+  REAL(8), PARAMETER  :: deg2rad=cnst_pi/180.0d0
+  REAL(8) :: cos_tmp
+  REAL(8),ALLOCATABLE,SAVE :: lwp_obs(:,:,:) ! 2016.07.06 Koji
+
 
   REAL(Kind=8), allocatable :: bt(:,:,:,:)
   !REAL(Kind=8), allocatable :: bt(:,:)
@@ -423,6 +446,9 @@ program prg_vbc
   !real(4), allocatable :: obsdata_out(:)
   integer :: sobs, eobs
 
+  INTEGER :: ntvschan(maxtvsch,ninstrument)   ! 2016.07.06 Koji
+
+
   LOGICAL,PARAMETER :: msw_vbc = .TRUE.
 
   logical :: ocheck=.false.
@@ -470,6 +496,8 @@ program prg_vbc
        out_gsfile,         &
        rttovcoef_fname,    &
        pres_basename,      &
+       scanbias_basename,  &
+       nmem,               &
        ocheck
 
   namelist /OPTION/ glevel,            &
@@ -537,6 +565,7 @@ program prg_vbc
   write(ADM_LOG_FID,*) 'ntvs=         ', ntvs(1:ninstrument)
   write(ADM_LOG_FID,*) 'maxtvsprof=   ', maxtvsprof
   write(ADM_LOG_FID,*) 'maxtvsfoot=   ', maxtvsfoot
+  write(ADM_LOG_FID,*) 'nmem=         ', nmem
   FLUSH(ADM_LOG_FID)
 
   allocate( tvslat(maxtvsprof,ninstrument,nslots) )
@@ -606,10 +635,15 @@ program prg_vbc
   allocate( lev_obs(nsite) )
 
   allocate( lsql(maxtvsprof,ninstrument,nslots) )
-  allocate( saza(nsite) )
-  allocate( saaz(nsite) )
-  allocate( soza(nsite) )
-  allocate( soaz(nsite) )
+  !allocate( saza(nsite) )
+  !allocate( saaz(nsite) )
+  !allocate( soza(nsite) )
+  !allocate( soaz(nsite) )
+  allocate( saza(maxtvsprof,ninstrument,nslots) )
+  allocate( saaz(maxtvsprof,ninstrument,nslots) )
+  allocate( soza(maxtvsprof,ninstrument,nslots) )
+  allocate( soaz(maxtvsprof,ninstrument,nslots) )
+  ALLOCATE( lwp_obs(maxtvsprof,ninstrument,nslots) )         ! 2016.07.04 Koji
   allocate( said(nsite) )
 
   !
@@ -658,12 +692,16 @@ program prg_vbc
       odat(1:15,s) = dble(wk(19:33)) !! 2014.07.17 fix
       tvsfoot(n,nn,1) = dble(wk(11))
       lsql(n,nn,1) = dble(wk(12))
-      saza(s) = dble(wk(13))
-      soza(s) = dble(wk(14))
+      saza(n,nn,1)    = dble(wk(13))
+      soza(n,nn,1)    = dble(wk(14))
+      !saza(s) = dble(wk(13))
+      !soza(s) = dble(wk(14))
       elev(s) = dble(wk(15))
       tvselev(n,nn,1) = dble(wk(15))
-      soaz(s) = dble(wk(17))
-      saaz(s) = dble(wk(18))
+      soaz(n,nn,1)    = dble(wk(17))
+      saaz(n,nn,1)    = dble(wk(18))
+      !soaz(s) = dble(wk(17))
+      !saaz(s) = dble(wk(18))
       !obserr(:,s) = 0.3
       !obserr(:,s) = 0.5
       s=s+1
@@ -693,7 +731,7 @@ program prg_vbc
       i=i+1
     end do
   end do
-  tvserr(:,:,:,:)=0.5d0
+  tvserr(:,:,:,:)=0.3d0
 
   do nn = 1, ninstrument
     do ic = 1, ntvsch(nn)
@@ -704,6 +742,19 @@ program prg_vbc
 
   do nn = 1, ninstrument
     write(ADM_LOG_FID,'(i5,10f10.3)') nn, (tvsdat(tvsch(ic,nn),1,nn,1),ic=1,ntvsch(nn))
+  end do
+
+  do nn = 1, ninstrument
+  do n = 1, ntvs(nn)
+    cos_tmp=cos(saza(n,nn,islot)*deg2rad)
+    if( tvsdat(1,n,nn,islot) < 285.0 .or. tvsdat(2,n,nn,islot) < 285.0 ) then
+      lwp_obs(n,nn,islot)=cos_tmp*( 8.24 - ( 2.539 - 1.744*cos_tmp ) * cos_tmp + &
+                          0.754*log(285.0-tvsdat(1,n,nn,islot)) - &
+                          2.265*log(285.0-tvsdat(2,n,nn,islot)))
+    else
+      lwp_obs(n,nn,islot)=999.0
+    end if
+  end do
   end do
 
   call GTL_input_var2(trim(veg_base), veg, veg_pl, ADM_KNONE, ADM_KNONE, 8)
@@ -1112,34 +1163,6 @@ program prg_vbc
       FLUSH(ADM_LOG_FID)
       sobs=1
       eobs=ntvs(1)
-      write(ADM_LOG_FID,*) nlev
-      write(ADM_LOG_FID,*) ntvs(1)
-      write(ADM_LOG_FID,*) trim(rttovcoef_fname(1))
-      write(ADM_LOG_FID,*)maxval(obsdata_jprb(var_nlayer(id_pres_nicam):1:-1,1:ntvs(1),1,id_pres_nicam))
-      write(ADM_LOG_FID,*)minval(obsdata_jprb(var_nlayer(id_pres_nicam):1:-1,1:ntvs(1),1,id_pres_nicam))
-      write(ADM_LOG_FID,*)maxval(obsdata_jprb(var_nlayer(id_temp_nicam):1:-1,1:ntvs(1),1,id_temp_nicam))
-      write(ADM_LOG_FID,*)minval(obsdata_jprb(var_nlayer(id_temp_nicam):1:-1,1:ntvs(1),1,id_temp_nicam))
-      write(ADM_LOG_FID,*)maxval(obsdata_jprb(var_nlayer(id_qvap_nicam):1:-1,1:ntvs(1),1,id_qvap_nicam))
-      write(ADM_LOG_FID,*)minval(obsdata_jprb(var_nlayer(id_qvap_nicam):1:-1,1:ntvs(1),1,id_qvap_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(1),1,id_tsfc_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(1),1,id_tsfc_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(1),1,id_qv2m_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(1),1,id_qv2m_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(1),1,id_surp_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(1),1,id_surp_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(1),1,id_u10m_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(1),1,id_u10m_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(1),1,id_v10m_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(1),1,id_v10m_nicam))
-      write(ADM_LOG_FID,*) maxval( soza(sobs:eobs))
-      write(ADM_LOG_FID,*) minval( soza(sobs:eobs))
-      write(ADM_LOG_FID,*) maxval( soaz(sobs:eobs))
-      write(ADM_LOG_FID,*) minval( soaz(sobs:eobs))
-      write(ADM_LOG_FID,*) maxval( saza(sobs:eobs))
-      write(ADM_LOG_FID,*) minval( saza(sobs:eobs))
-      write(ADM_LOG_FID,*) maxval( saaz(sobs:eobs))
-      write(ADM_LOG_FID,*) minval( saaz(sobs:eobs))
-      flush(ADM_LOG_FID)
 
       call AMSUA_fwd(nlev, ntvs(1), rttovcoef_fname(1), &
                      obsdata_jprb(var_nlayer(id_pres_nicam):1:-1,1:ntvs(1),1,id_pres_nicam), &
@@ -1150,8 +1173,10 @@ program prg_vbc
                      obsdata_jprb(1,1:ntvs(1),1,id_surp_nicam), &
                      obsdata_jprb(1,1:ntvs(1),1,id_u10m_nicam), &
                      obsdata_jprb(1,1:ntvs(1),1,id_v10m_nicam), &
-                     soza(sobs:eobs), soaz(sobs:eobs), &
-                     saza(sobs:eobs), saaz(sobs:eobs), &
+                     soza(1:ntvs(1),1,islot), &
+                     soaz(1:ntvs(1),1,islot), &
+                     saza(1:ntvs(1),1,islot), &
+                     saaz(1:ntvs(1),1,islot), &
                      elev(sobs:eobs)/1000.0d0, lon(sobs:eobs), &
                      lat(sobs:eobs), land(sobs:eobs), &
                      bt(:,1:ntvs(1),1,1), tran(:,:,1:ntvs(1),1,1) )
@@ -1163,34 +1188,6 @@ program prg_vbc
       FLUSH(ADM_LOG_FID)
       sobs=nobs_tmp2+1
       eobs=nobs_tmp2+ntvs(2)
-      write(ADM_LOG_FID,*) nlev
-      write(ADM_LOG_FID,*) ntvs(2)
-      write(ADM_LOG_FID,*) trim(rttovcoef_fname(2))
-      write(ADM_LOG_FID,*) maxval(obsdata_jprb(var_nlayer(id_pres_nicam):1:-1,1:ntvs(2),2,id_pres_nicam))
-      write(ADM_LOG_FID,*) minval(obsdata_jprb(var_nlayer(id_pres_nicam):1:-1,1:ntvs(2),2,id_pres_nicam))
-      write(ADM_LOG_FID,*) maxval(obsdata_jprb(var_nlayer(id_temp_nicam):1:-1,1:ntvs(2),2,id_temp_nicam))
-      write(ADM_LOG_FID,*) minval(obsdata_jprb(var_nlayer(id_temp_nicam):1:-1,1:ntvs(2),2,id_temp_nicam))
-      write(ADM_LOG_FID,*) maxval(obsdata_jprb(var_nlayer(id_qvap_nicam):1:-1,1:ntvs(2),2,id_qvap_nicam))
-      write(ADM_LOG_FID,*) minval(obsdata_jprb(var_nlayer(id_qvap_nicam):1:-1,1:ntvs(2),2,id_qvap_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(2),2,id_tsfc_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(2),2,id_tsfc_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(2),2,id_qv2m_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(2),2,id_qv2m_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(2),2,id_surp_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(2),2,id_surp_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(2),2,id_u10m_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(2),2,id_u10m_nicam))
-      write(ADM_LOG_FID,*) maxval( obsdata_jprb(1,1:ntvs(2),2,id_v10m_nicam))
-      write(ADM_LOG_FID,*) minval( obsdata_jprb(1,1:ntvs(2),2,id_v10m_nicam))
-      write(ADM_LOG_FID,*) maxval( soza(sobs:eobs))
-      write(ADM_LOG_FID,*) minval( soza(sobs:eobs))
-      write(ADM_LOG_FID,*) maxval( soaz(sobs:eobs))
-      write(ADM_LOG_FID,*) minval( soaz(sobs:eobs))
-      write(ADM_LOG_FID,*) maxval( saza(sobs:eobs))
-      write(ADM_LOG_FID,*) minval( saza(sobs:eobs))
-      write(ADM_LOG_FID,*) maxval( saaz(sobs:eobs))
-      write(ADM_LOG_FID,*) minval( saaz(sobs:eobs))
-      flush(ADM_LOG_FID)
 
       call AMSUA_fwd(nlev, ntvs(2), rttovcoef_fname(2), &
                      obsdata_jprb(var_nlayer(id_pres_nicam):1:-1,1:ntvs(2),2,id_pres_nicam),&
@@ -1201,8 +1198,10 @@ program prg_vbc
                      obsdata_jprb(1,1:ntvs(2),2,id_surp_nicam), &
                      obsdata_jprb(1,1:ntvs(2),2,id_u10m_nicam), &
                      obsdata_jprb(1,1:ntvs(2),2,id_v10m_nicam), &
-                     soza(sobs:eobs), soaz(sobs:eobs), &
-                     saza(sobs:eobs), saaz(sobs:eobs), &
+                     soza(1:ntvs(2),2,islot), &
+                     soaz(1:ntvs(2),2,islot), &
+                     saza(1:ntvs(2),2,islot), &
+                     saaz(1:ntvs(2),2,islot), &
                      elev(sobs:eobs)/1000.0d0, lon(sobs:eobs), &
                      lat(sobs:eobs), land(sobs:eobs), &
                      bt(:,1:ntvs(2),2,1), tran(:,:,1:ntvs(2),2,1) )
@@ -1223,8 +1222,10 @@ program prg_vbc
                      obsdata_jprb(1,1:ntvs(3),3,id_surp_nicam), &
                      obsdata_jprb(1,1:ntvs(3),3,id_u10m_nicam), &
                      obsdata_jprb(1,1:ntvs(3),3,id_v10m_nicam), &
-                     soza(sobs:eobs), soaz(sobs:eobs), &
-                     saza(sobs:eobs), saaz(sobs:eobs), &
+                     soza(1:ntvs(3),3,islot), &
+                     soaz(1:ntvs(3),3,islot), &
+                     saza(1:ntvs(3),3,islot), &
+                     saaz(1:ntvs(3),3,islot), &
                      elev(sobs:eobs)/1000.0d0, lon(sobs:eobs), &
                      lat(sobs:eobs), land(sobs:eobs), &
                      bt(:,1:ntvs(3),3,1), tran(:,:,1:ntvs(3),3,1) )
@@ -1245,8 +1246,10 @@ program prg_vbc
                      obsdata_jprb(1,1:ntvs(4),4,id_surp_nicam), &
                      obsdata_jprb(1,1:ntvs(4),4,id_u10m_nicam), &
                      obsdata_jprb(1,1:ntvs(4),4,id_v10m_nicam), &
-                     soza(sobs:eobs), soaz(sobs:eobs), &
-                     saza(sobs:eobs), saaz(sobs:eobs), &
+                     soza(1:ntvs(4),4,islot), &
+                     soaz(1:ntvs(4),4,islot), &
+                     saza(1:ntvs(4),4,islot), &
+                     saaz(1:ntvs(4),4,islot), &
                      elev(sobs:eobs)/1000.0d0, lon(sobs:eobs), &
                      lat(sobs:eobs), land(sobs:eobs), &
                      bt(:,1:ntvs(4),4,1), tran(:,:,1:ntvs(4),4,1) )
@@ -1267,8 +1270,10 @@ program prg_vbc
                      obsdata_jprb(1,1:ntvs(5),5,id_surp_nicam), &
                      obsdata_jprb(1,1:ntvs(5),5,id_u10m_nicam), &
                      obsdata_jprb(1,1:ntvs(5),5,id_v10m_nicam), &
-                     soza(sobs:eobs), soaz(sobs:eobs), &
-                     saza(sobs:eobs), saaz(sobs:eobs), &
+                     soza(1:ntvs(5),5,islot), &
+                     soaz(1:ntvs(5),5,islot), &
+                     saza(1:ntvs(5),5,islot), &
+                     saaz(1:ntvs(5),5,islot), &
                      elev(sobs:eobs)/1000.0d0, lon(sobs:eobs), &
                      lat(sobs:eobs), land(sobs:eobs), &
                      bt(:,1:ntvs(5),5,1), tran(:,:,1:ntvs(5),5,1) )
@@ -1334,17 +1339,17 @@ program prg_vbc
         iobs1=iobs1+1
         vbc_pred(1,:,n,nn,1)=undef ! IWLR is depending on ch (calc. on part2)
         vbc_pred(2,:,n,nn,1)=undef
-        vbc_pred(3,:,n,nn,1)=undef
+        vbc_pred(3,:,n,nn,1)=0.0d0
         vbc_pred(4,:,n,nn,1)=(obsdata_out(1,iobs1,id_tsfc_nicam)-273.15d0)/10.d0
-        vbc_pred(5,:,n,nn,1)=0.d0
-        vbc_pred(6,:,n,nn,1)=obsdata_out(1,iobs1,id_cldw_nicam)/30.0d0
-        vbc_pred(7,:,n,nn,1)=1.d0/cos(saza(iobs1)*CNST_PI/180.d0)
-        vbc_pred(8,:,n,nn,1)=0.d0
+        vbc_pred(5,:,n,nn,1)=0.0d0
+        vbc_pred(6,:,n,nn,1)=0.0d0
+        vbc_pred(7,:,n,nn,1)=1.d0/cos(saza(n,nn,1)*CNST_PI/180.d0)
+        vbc_pred(8,:,n,nn,1)=0.0d0
         do ic = 1, ntvsch(nn)
           iwlr=0.0d0
           do ilev = 1, nlev-1
-            if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam),kind=8)>200.0d0 .and. &
-               real(obsdata_jprb(ilev,n,nn,id_pres_nicam),kind=8)<850.0d0) then
+            if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam),kind=8)> 200.0d0 .and. &
+               real(obsdata_jprb(ilev,n,nn,id_pres_nicam),kind=8)<1000.0d0) then
               iwlr = iwlr &
                    +(real(obsdata_jprb(ilev+1,n,nn,id_temp_nicam),kind=8)   &
                     -real(obsdata_jprb(ilev  ,n,nn,id_temp_nicam),kind=8))* &
@@ -1370,21 +1375,6 @@ program prg_vbc
           vbc_pred(2,ic,n,nn,1)=iwlr
         end do
 
-        do ic = 1, ntvsch(nn)
-          iwlr=0.0d0
-          do ilev = 1, nlev-1
-            if(real(obsdata_jprb(ilev,n,nn,id_pres_nicam),kind=8)> 5.0d0   .and.&
-               real(obsdata_jprb(ilev,n,nn,id_pres_nicam),kind=8)<50.0d0) then
-              iwlr = iwlr &
-                   +(real(obsdata_jprb(ilev+1,n,nn,id_temp_nicam),kind=8)   &
-                    -real(obsdata_jprb(ilev  ,n,nn,id_temp_nicam),kind=8))* &
-                    (tran(nlev-ilev  , tvsch(ic,nn),n,nn,1)&
-                    -tran(nlev-ilev+1, tvsch(ic,nn),n,nn,1))
-            end if
-          end do
-          vbc_pred(3,ic,n,nn,1)=iwlr
-        end do
-
       end do
     end do
 
@@ -1397,9 +1387,9 @@ program prg_vbc
         ifoot=tvsfoot(n,nn,1)
         do ic=1,ntvsch(nn)
           ichan=tvsch(ic,nn)
-          if(ichan<=9) then
+          !if(ichan<=9) then
             tvsdat(ichan,n,nn,1)=tvsdat(ichan,n,nn,1)-vbcf_scan(ifoot,ic,nn)
-          end if
+          !end if
         end do
       end do
     end do
@@ -1408,7 +1398,8 @@ program prg_vbc
       do n =  1, ntvs(nn)
         do ic=1,ntvsch(nn)
           ichan=tvsch(ic,nn)
-          if(ichan<=9) then
+          !if(ichan>=5 .and. ichan<=9) then
+          if(ichan>=5) then
             tvsdat(ichan,n,nn,1)=tvsdat(ichan,n,nn,1)+&
                    sum(vbc_pred(:,ic,n,nn,1)*vbc(:,ic,nn))
           end if
@@ -1426,69 +1417,70 @@ program prg_vbc
     end do
 
     do nn = 1, ninstrument
-      do n =  1, ntvsprof(nn)
-        !! [QUALITY CHECK FOR AMSU-A]
-        !! Add 2016/02/02 Avoid cloud over land (refer to Bormann, 2010)
-        !! Clear sky       : chs <=5 are not assimilated
-        !! Clear sky       : ch6 is assimilated if z>1500m
-        !! Clear sky       : ch7 is assimilated if z>2500m
-        !! Clear sky       : chs >= 8 are assimilated
-        !! Cloudy or rainy : no assimilation (chs >= 9 are assimilated in JMA)
-        !if( lsql(n,nn,islot)==0 ) then
-        !  if( abs( tvsdat(4,n,nn,islot)-bt(4,n,nn,islot) ) < 0.7 ) then
-        !    do ic = 1, ntvsch(nn)
-        !      ! Clear sky       : chs <=5 are not assimilated
-        !      if(tvsch(ic,nn) <= 5) then
-        !        tvsqc(ic,n,nn,islot)=0
-        !      end if
-        !      ! Clear sky       : ch6 is assimilated if z>1500m
-        !      if(tvsch(ic,nn) == 6 .and. tvselev(n,nn,islot) > 1500) then
-        !        tvsqc(ic,n,nn,islot)=0
-        !      end if
-        !      ! Clear sky       : ch7 is assimilated if z>2500m
-        !      if(tvsch(ic,nn) == 7 .and. tvselev(n,nn,islot) > 2500) then
-        !        tvsqc(ic,n,nn,islot)=0
-        !      end if
-        !    end do
-        !  end if
-        !  if( abs( tvsdat(4,n,nn,islot)-bt(4,n,nn,islot) ) > 0.7 ) then
-        !    do ic = 1, ntvsch(nn)
-        !      if(tvsch(ic,nn) <= 8) then
-        !        tvsqc(ic,n,nn,islot)=0
-        !      end if
-        !    end do
-        !  end if
-        !end if
-        !! Add 2016/02/02 Avoid cloud over ocean (refer to Bormann, 2010)
-        !! Clear sky       : chs >= 4 are assimilated
-        !! Cloudy sky      : chs >= 7 are assimilated
-        !!!! rainy           : chs >= 9 are assimilated [not ready]
-        !if( lsql(n,nn,islot)==1 ) then
-        !  if( abs( tvsdat(3,n,nn,islot)-bt(3,n,nn,islot) ) > 3.0 ) then
-        !    do ic = 1, ntvsch(nn)
-        !      if( tvsch(ic,nn) < 7 ) then
-        !        tvsqc(ic,n,nn,islot)=0
-        !      end if
-        !    end do
-        !  end if
-        !end if
-
-        ! Do not assimilate over land
-        if( lsql(n,nn,1)==0 ) then
-          tvsqc(:,n,nn,1)=0
-        end if
-        do ic=1, ntvsch(nn)
+      !do n =  1, ntvsprof(nn)
+      do n =  1, ntvs(nn)
+        do ic = 1, ntvsch(nn)
           ichan=tvsch(ic,nn)
-          !if(tvslat(n,nn,1)>=-60.0 .and. lsql(n,nn,1)==0 ) then
-          !  tvsqc(ichan,n,nn,1)=0
-          !end if
-          !if(tvsch(ichan,nn)<9) then
-          if(tvslat(n,nn,1)<-60.0) tvsqc(ichan,n,nn,1)=0
-          if(tvslat(n,nn,1)> 60.0) tvsqc(ichan,n,nn,1)=0
-          if(tvsdat(ichan,n,nn,1)<100.0 .or. tvsdat(ichan,n,nn,1)>400.0) then
-            tvsqc(ichan,n,nn,1)=0
+          if( ichan <= 4 ) then
+            tvsqc(ichan,n,nn,islot)=0
           end if
         end do
+        ! [QUALITY CHECK FOR AMSU-A]
+        ! Add 2016/02/02 Avoid cloud over land (refer to Bormann, 2010)
+        ! Clear sky       : chs <=5 are not assimilated
+        ! Clear sky       : ch6 is assimilated if z>1500m
+        ! Clear sky       : ch7 is assimilated if z>2500m
+        ! Clear sky       : chs >= 8 are assimilated
+        ! Cloudy or rainy : no assimilation (chs >= 9 are assimilated in JMA)
+        if( lsql(n,nn,islot)==0 ) then
+          do ic = 1, ntvsch(nn)
+            ichan=tvsch(ic,nn)
+            if( ichan <= 7) then
+              tvsqc(ichan,n,nn,islot)=0
+            end if
+          end do
+        end if
+        ! Add 2016/02/02 Avoid cloud over ocean (refer to Bormann, 2010)
+        ! Clear sky       : chs >= 4 are assimilated
+        ! Cloudy sky      : chs >= 7 are assimilated
+        !!! rainy           : chs >= 9 are assimilated [not ready]
+        if( lsql(n,nn,islot)==1 ) then
+          !if( abs( tvsdat(3,n,nn,islot)-bt(3,n,nn,islot) ) < 5.0 ) then
+          if( lwp_obs(n,nn,islot) > 0.12 ) then
+            do ic = 1, ntvsch(nn)
+              ichan=tvsch(ic,nn)
+              if( ichan <= 7 ) then
+                tvsqc(ichan,n,nn,islot)=0
+              end if
+            end do
+          end if
+          !if( abs( tvsdat(3,n,nn,islot)-bt(3,n,nn,islot) ) > 5.0 ) then
+          if( lwp_obs(n,nn,islot) > 0.15 ) then
+            do ic = 1, ntvsch(nn)
+              ichan=tvsch(ic,nn)
+              if( ichan == 8 ) then
+                tvsqc(ichan,n,nn,islot)=0
+              end if
+            end do
+          end if
+        end if
+
+        ! Do not assimilate over land
+!        if( lsql(n,nn,1)==0 ) then
+!          tvsqc(:,n,nn,1)=0
+!        end if
+!        do ic=1, ntvsch(nn)
+!          ichan=tvsch(ic,nn)
+!          !if(tvslat(n,nn,1)>=-60.0 .and. lsql(n,nn,1)==0 ) then
+!          !  tvsqc(ichan,n,nn,1)=0
+!          !end if
+!          !if(tvsch(ichan,nn)<9) then
+!          if(tvslat(n,nn,1)<-60.0) tvsqc(ichan,n,nn,1)=0
+!          if(tvslat(n,nn,1)> 60.0) tvsqc(ichan,n,nn,1)=0
+!          if(tvsdat(ichan,n,nn,1)<100.0 .or. tvsdat(ichan,n,nn,1)>400.0) then
+!            tvsqc(ichan,n,nn,1)=0
+!          end if
+!        end do
       end do
     end do
 
@@ -1496,14 +1488,15 @@ program prg_vbc
       do n =  1, ntvs(nn)
         do ic = 1, ntvsch(nn)
           ichan=tvsch(ic,nn)
-          if(abs(tvsdat(ichan,n,nn,1)-bt(ichan,n,nn,1))>tvserr(ichan,n,nn,1)*5.0d0) then
+          if(abs(tvsdat(ichan,n,nn,1)-bt(ichan,n,nn,1))>tvserr(ichan,n,nn,1)*3.0d0) then
             tvsqc(ichan,n,nn,1)=0
           end if
         end do
       end do
     end do
 
-    call das_vbc(bt_tmp, vbc_pred, vbc, vbca)
+    !call das_vbc(bt_tmp, vbc_pred, vbc, vbca)
+    call das_vbc(bt, vbc_pred, vbc, vbca)
 
     call vbc_write('vbca_coef.txt',0,vbca)
   
@@ -1516,16 +1509,80 @@ program prg_vbc
     call vbc_scan_read('vbcf_scanbias_coef.txt',0,vbcf_scan)
 
     vbca_scan(:,:,:)=0.0
-    open(100,file='scanbias.txt')
-    write(*,*) 'TEST SCANBIAS READING'
-    do nn = 1, ninstrument
-      do ifoot = 1, maxtvsfoot
-        read(100,*) tvsname_scan, n, vbca_scan(ifoot,1:ntvsch(nn),nn)
-        write(*,'(2i5,30f9.3)') nn, ifoot, vbca_scan(ifoot,1:ntvsch(nn),nn)
-      end do
+    num_scan(:,:,:)=0
+    num_scan_tmp(:,:,:)=0
+    vbca_scan_tmp(:,:,:,:)=0.0
+    do islots = 1, 7
+    do imem = 1, nmem
+      write(cslot,'(I2.2)') islots
+      write(cimem,'(I6.6)') imem
+      do nn = 1, ninstrument
+        write(cfile(1:4),'(A4)') tvsname(nn)
+        scanbias_fname=trim(scanbias_basename)//'_'//trim(cfile)//trim(cslot)//trim(cimem)//'.txt'
+        write(*,*) trim(scanbias_fname)
+        INQUIRE(FILE=scanbias_fname,EXIST=ex)
+        IF(ex) THEN
+          open(100,file=trim(scanbias_fname))
+          do
+            read(100,*,iostat=ios) tvsname_scan, ifoot, lwp, dum, scanread(1:ntvsch(nn)), qcread(1:ntvsch(nn))
+            if(ios /= 0) then
+              write(*,*) islots, imem, nn, num_scan(ifoot,1:ntvsch(nn),nn)
+              exit
+            end if
+            do ic = 1, ntvsch(nn)
+              if(abs(scanread(ic))<10.0) then
+                !if( qcread(ic) == 1.0 ) then
+                  num_scan(ifoot,ic,nn)=num_scan(ifoot,ic,nn)+1
+                  vbca_scan_tmp(ic,num_scan(ifoot,ic,nn),ifoot,nn)=scanread(ic)
+                !end if
+              end if
+            end do
+            !num_scan(ifoot,1:ntvsch(nn),nn)=num_scan(ifoot,1:ntvsch(nn),nn)+1
+            !vbca_scan_tmp(1:ntvsch(nn),num_scan(ifoot,1,nn),ifoot,nn)=scanread(1:ntvsch(nn))
+          end do
+          close(100)
+        END IF
+      end do   
+    end do   
     end do   
 
-    vbcf_scan(:,:,:)=0.97*vbcf_scan(:,:,:)+0.03*vbca_scan(:,:,:)
+    do ifoot = 1, maxfoot
+      write(*,*) ifoot, (num_scan(ifoot,1,nn),nn=1,ninstrument)
+    end do
+
+    vbca_scan_ave(:,:,:)=0.0
+    do nn = 1, ninstrument
+    do ifoot = 1, maxfoot
+    do ic = 1, ntvsch(nn)
+      if(num_scan(ifoot,ic,nn)>0) then
+        vbca_scan_ave(ifoot,ic,nn)=sum(vbca_scan_tmp(ic,1:num_scan(ifoot,ic,nn),ifoot,nn))/real(num_scan(ifoot,ic,nn))
+      end if
+    end do
+    end do
+    end do
+
+    write(*,*) 'AVERAGE'
+    do ifoot = 1, maxfoot
+      write(*,*) ifoot, (vbca_scan_ave(ifoot,1,nn),nn=1,ninstrument)
+    end do
+
+    do nn = 1, ninstrument
+    do ifoot = 1, maxfoot
+    do ic = 1, ntvsch(nn)
+      if(num_scan(ifoot,ic,nn)>0) then
+        vbca_scan_std(ifoot,ic,nn)=sum( (vbca_scan_tmp(ic,1:num_scan(ifoot,ic,nn),ifoot,nn)-vbca_scan_ave(ifoot,ic,nn) )**2 )/real(num_scan(ifoot,ic,nn))
+        vbca_scan_std(ifoot,ic,nn)=sqrt(vbca_scan_std(ifoot,ic,nn))
+      end if
+    end do
+    end do
+    end do
+
+    write(*,*) 'STANDARD DEVIATION'
+    do ifoot = 1, maxfoot
+      write(*,*) ifoot, (vbca_scan_std(ifoot,1,nn),nn=1,ninstrument)
+    end do
+
+    vbcf_scan(:,:,:)=0.97*vbcf_scan(:,:,:)+0.03*(vbca_scan_ave(:,:,:)-vbcf_scan(:,:,:))
 
     call vbc_scan_write('vbca_scanbias_coef.txt',0,vbcf_scan)
 
@@ -2858,8 +2915,6 @@ SUBROUTINE vbc_local(ic,iinst,ntvsl,hx,pred,a,b)
           a(i,j) = a(i,j) &
                & + pred(i,ic,iprof,iinst,islot) &
                & * pred(j,ic,iprof,iinst,islot) / r
-               !& + pred(i,ichan,iprof,iinst,islot) &
-               !& * pred(j,ichan,iprof,iinst,islot) / r
         END DO
       END DO
       !
@@ -2884,13 +2939,13 @@ SUBROUTINE vbc_local(ic,iinst,ntvsl,hx,pred,a,b)
       !
       ! p R^-1 d
       !
+      !b(:) = b(:) + pred(:,ic,iprof,iinst,islot) / r &
+      !          & *(tvsdat(ichan,iprof,iinst,islot)-hx(ic,iprof,iinst,islot))
       b(:) = b(:) + pred(:,ic,iprof,iinst,islot) / r &
-                & *(tvsdat(ichan,iprof,iinst,islot)-hx(ic,iprof,iinst,islot))
-      !b(:) = b(:) + pred(:,ichan,iprof,iinst,islot) / r &
-      !          & *(tvsdat(ichan,iprof,iinst,islot)-hx(ichan,iprof,iinst,islot))
-      write(*,*) islot, iprof, tvsdat(ichan,iprof,iinst,islot), hx(ic,iprof,iinst,islot)
-      bias = bias+tvsdat(ichan,iprof,iinst,islot)-hx(ic,iprof,iinst,islot)
-      dep = dep+(tvsdat(ichan,iprof,iinst,islot)-hx(ic,iprof,iinst,islot))**2
+                & *(tvsdat(ichan,iprof,iinst,islot)-hx(ichan,iprof,iinst,islot))
+      write(*,*) islot, iprof, tvsdat(ichan,iprof,iinst,islot), hx(ichan,iprof,iinst,islot)
+      bias = bias+tvsdat(ichan,iprof,iinst,islot)-hx(ichan,iprof,iinst,islot)
+      dep = dep+(tvsdat(ichan,iprof,iinst,islot)-hx(ichan,iprof,iinst,islot))**2
       bias0= bias0+tvsdep(ichan,iprof,iinst,islot)
       dep0= dep0+tvsdep(ichan,iprof,iinst,islot)**2
       n = n+1

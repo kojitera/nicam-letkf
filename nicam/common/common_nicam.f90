@@ -23,8 +23,8 @@ MODULE common_nicam
   INTEGER :: nbv=0
   INTEGER,PARAMETER :: nlon=160
   INTEGER,PARAMETER :: nlat=nlon/2
-  !INTEGER,PARAMETER :: nlev=96
   INTEGER,PARAMETER :: nlev=40
+  !INTEGER,PARAMETER :: nlev=40
   INTEGER,PARAMETER :: nv3d=8 ! u,v,t,q
   INTEGER,PARAMETER :: nv2d=29 ! ps,rain,slp
   ! 3D VARIABLES (ANALYZED)
@@ -94,6 +94,8 @@ MODULE common_nicam
   CHARACTER(128),SAVE :: gues_basedir ! [add] Koji 20140207
   CHARACTER(128),SAVE :: infl_basedir ! [add] Koji 20140208
   CHARACTER(128),SAVE :: anal_basedir ! [add] Koji 20140916
+  CHARACTER(128),SAVE :: obsprep_basedir ! [add] Koji 20160706
+  CHARACTER(128),SAVE :: obssate_basedir ! [add] Koji 20160706
   character(LEN=16), private, save :: restart_layername = ''
 
   REAL(r_size),SAVE :: dlon
@@ -168,6 +170,8 @@ SUBROUTINE set_common_nicam
     CDATE14,                & ! [add] Koji 20141024
     ODATE,                  &
     TDATE,                  &
+    obsprep_basedir,        & ! [add] Koji 20160706
+    obssate_basedir,        & ! [add] Koji 20160706
     gues_basedir,           & ! [add] Koji 20140207
     infl_basedir,           & ! [add] Koji 20140207
     anal_basedir,           & ! [add] Koji 20140916
@@ -387,6 +391,7 @@ SUBROUTINE read_icogrd(filename1,filename2,v3d,v2d)
   varname2d(28)='ol_ist'
   varname2d(29)='ol_icr'
 
+  !restart_layername='ZSALL80'
   !restart_layername='ZSALL96'
   restart_layername='ZSALL40'
   allocate( ifid(MNG_PALL) )
@@ -735,6 +740,7 @@ SUBROUTINE write_icogrd(filename1,filename2,v3d,v2d)
   unit2d(28)='K'
   unit2d(29)='NONE'
 
+  !restart_layername='ZSALL80'
   !restart_layername='ZSALL96'
   restart_layername='ZSALL40'
   allocate( ifid(MNG_PALL) )
@@ -794,10 +800,25 @@ SUBROUTINE write_icogrd(filename1,filename2,v3d,v2d)
 
       !restart_layername  ='ZSDEF94'
       restart_layername  ='ZSDEF38'
+      !restart_layername  ='ZSDEF78'
       dinfo%layername    = restart_layername
       dinfo%datasize     = ADM_gall * ADM_lall * (ADM_kall-2) * 8
       dinfo%num_of_layer = ADM_kall-2
  
+      dinfo%varname      ='ms_pres'
+      dinfo%unit         ='Pa'
+      call fio_put_write_datainfo_data(did,ifid(p),dinfo,v3d(:,p,2:nlev-1,iv3d_p))
+
+      ! THIS IS DUMMY (PRESSURE)
+      dinfo%varname      ='ms_u'
+      dinfo%unit         ='m/s'
+      call fio_put_write_datainfo_data(did,ifid(p),dinfo,v3d(:,p,2:nlev-1,iv3d_p))
+
+      ! THIS IS DUMMY (PRESSURE)
+      dinfo%varname      ='ms_v'
+      dinfo%unit         ='m/s'
+      call fio_put_write_datainfo_data(did,ifid(p),dinfo,v3d(:,p,2:nlev-1,iv3d_p))
+
       dinfo%varname      ='ms_tem'
       dinfo%unit         ='K'
       call fio_put_write_datainfo_data(did,ifid(p),dinfo,v3d(:,p,2:nlev-1,iv3d_t))
@@ -809,10 +830,6 @@ SUBROUTINE write_icogrd(filename1,filename2,v3d,v2d)
       dinfo%varname      ='ms_qc'
       dinfo%unit         ='kg/kg'
       call fio_put_write_datainfo_data(did,ifid(p),dinfo,v3d(:,p,2:nlev-1,iv3d_qc))
-
-      dinfo%varname      ='ms_pres'
-      dinfo%unit         ='Pa'
-      call fio_put_write_datainfo_data(did,ifid(p),dinfo,v3d(:,p,2:nlev-1,iv3d_p))
 
       restart_layername='ZSSFC1'
       dinfo%layername    = restart_layername

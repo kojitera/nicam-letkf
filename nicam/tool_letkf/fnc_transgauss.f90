@@ -378,6 +378,7 @@ subroutine read_corr(fname,gall,ndivid,corr)
 
   corr(:)  = undef 
   
+  !write(*,*) 'fname= ', trim(fname)
   open(1,file=trim(fname),form='unformatted',access='direct',recl=gall*8,action='read')
   read(1,rec=2*(ndivid+1)+4)  corr(:)
   close(1)
@@ -817,7 +818,7 @@ subroutine update_date(date,nhour)
     if ( day.gt.mondays ) then
       day = 1
       mon = mon + 1
-      if( mon.gt.13 ) then
+      if( mon.ge.13 ) then
         mon = 1
         year = year + 1
       end if ! mon

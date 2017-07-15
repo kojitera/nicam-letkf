@@ -12,8 +12,8 @@ MODULE common_tvs_nicam
   IMPLICIT NONE
   PUBLIC
 
-  INTEGER,PARAMETER :: ninstrument=5
-  INTEGER,PARAMETER :: maxtvsch=10
+  INTEGER,PARAMETER :: ninstrument=8
+  INTEGER,PARAMETER :: maxtvsch=4
   INTEGER,PARAMETER :: maxvbc=8
   INTEGER,SAVE :: maxtvsprof
   INTEGER,SAVE :: maxtvsfoot
@@ -23,7 +23,7 @@ MODULE common_tvs_nicam
   INTEGER,SAVE :: tvsch(maxtvsch,ninstrument)
   INTEGER,SAVE :: ntvsch(ninstrument)
   INTEGER,SAVE :: nfootp(ninstrument)
-  INTEGER,SAVE :: ntvschan(maxtvsch,ninstrument)
+  !INTEGER,SAVE :: ntvschan(maxtvsch,ninstrument)   ! 2016.07.06 Koji
   INTEGER,SAVE :: ntvsprof(ninstrument)
   INTEGER,ALLOCATABLE,SAVE :: ntvsprofslots(:,:)
 
@@ -50,8 +50,8 @@ MODULE common_tvs_nicam
      &   ,rttv_plat_envi =11,rttv_plat_msg  =12 &
      &   ,rttv_plat_fy1  =13,rttv_plat_adeos=14 &
      &   ,rttv_plat_mtsat=15,rttv_plat_cori =16 &
-     &   ,rttv_plat_npoes=17,rttv_plat_gifts=18 &
-         ,rttv_plat_metop2=19
+     &   ,rttv_plat_jpss =17,rttv_plat_gifts=18 &
+     &   ,rttv_plat_metop2=19
 
   integer,parameter:: &
      &    rttv_inst_hirs  =0, rttv_chan_hirs  =19   & ! HIRS
@@ -60,8 +60,10 @@ MODULE common_tvs_nicam
      &   ,rttv_inst_ssmi  =6, rttv_chan_ssmi  =7    & ! SSMI
      &   ,rttv_inst_tmi   =9, rttv_chan_tmi   =9    & ! TMI
      &   ,rttv_inst_ssmis =10,rttv_chan_ssmis =24   & ! SSMIS
-     &   ,rttv_inst_airs  =11,rttv_chan_airs  =2378 & ! AIRS
+     &   ,rttv_inst_airs  =11,rttv_chan_airs  =616  & ! AIRS
+     &   ,rttv_inst_iasi  =16,rttv_chan_iasi  =8461 & ! IASI
      &   ,rttv_inst_amsr  =17,rttv_chan_amsr  =14   & ! AMSR
+     &   ,rttv_inst_atms  =19,rttv_chan_atms  =22   & ! ATMS
      &   ,rttv_inst_mviri =20,rttv_chan_mviri =2    & ! METEOSAT
      &   ,rttv_inst_seviri=21,rttv_chan_seviri=8    & ! MSG
      &   ,rttv_inst_goesi =22,rttv_chan_goesi =4    & ! GOES-IMAGER(IR)
@@ -92,7 +94,7 @@ SUBROUTINE get_ntvs_mpi(cfile,dir)
   DO n=1,ninstrument
     cfile(1:4)=tvsname(n)
     filename=trim(dir)//trim(cfile)
-    WRITE(ADM_LOG_FID,'(A,I7.7,2A)') 'MYRANK ',myrank,' is reading a file ',filename
+    WRITE(ADM_LOG_FID,'(A,I7.7,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename)
     !WRITE(cfile(1:4),'(A4)') tvsname(n)
     !INQUIRE(FILE=cfile,EXIST=ex)
     INQUIRE(FILE=filename,EXIST=ex)
@@ -117,27 +119,16 @@ SUBROUTINE get_ntvs_mpi(cfile,dir)
   END DO
 
   WRITE(ADM_LOG_FID,'(I10,A,I6.6)') SUM(ntvsprof(:)),' ATOVS OBSERVATION RECORDS INPUT in MYRANK',myrank 
-  WRITE(ADM_LOG_FID,'(6A12)') 'N15/AMSUA','N16/AMSUA','N18/AMSUA','N19/AMSUA','M02/AMSUA'
-  WRITE(ADM_LOG_FID,'(5I12)') (ntvsprof(n),n=1,5)
-!  WRITE(ADM_LOG_FID,'(5A12)') 'D13/SSMI', 'D14/SSMI', 'D15/SSMI','TRMM/TMI', 'E2/AMSR'
-!  WRITE(ADM_LOG_FID,'(5I12)') (ntvsprof(n),n=1,5)
+  WRITE(ADM_LOG_FID,'(8A11)') 'N15/AMSUA','N16/AMSUA','N18/AMSUA','N19/AMSUA','M02/AMSUA', 'M01/IASI', 'M02/IASI', 'J00/ATMS'
+  WRITE(ADM_LOG_FID,'(8I11)') (ntvsprof(n),n=1,8)
+  !WRITE(ADM_LOG_FID,'(3A12)') 'M01/IASI', 'M02/IASI', 'J00/ATMS'
+  !WRITE(ADM_LOG_FID,'(3I12)') (ntvsprof(n),n=6,8)
   WRITE(ADM_LOG_FID,'(A)') '=========================================================='
   FLUSH(ADM_LOG_FID)
-
-!  PRINT '(I10,A,I3.3)',SUM(ntvsprof(:)),' ATOVS OBSERVATION RECORDS INPUT &
-!        & in MYRANK',myrank
-!  PRINT '(6A12)','N15/AMSUA','N15/AMSUB','N16/AMSUA' &
-!                ,'N16/AMSUB','N17/AMSUB','E2/AMSUA'
-!  PRINT '(I12)',(ntvsprof(n),n=1,1)
-!  !PRINT '(5A12)','D13/SSMI', 'D14/SSMI', 'D15/SSMI' &
-!  !              ,'TRMM/TMI', 'E2/AMSR'
-!  !PRINT '(5I12)',(ntvsprof(n),n=7,11)
-!  PRINT '(A)','========================================================'
 
   RETURN
 END SUBROUTINE get_ntvs_mpi
 
-!SUBROUTINE read_tvs_mpi(cfile,rlon,rlat,zenith,skin,stmp,clw,elev,odat,oerr,hdxf,oqc,wgt)
 SUBROUTINE read_tvs_mpi(cfile,elem,rlon,rlat,zenith,skin,stmp,clw,elev,odat,oerr,hdxf,oqc,foot,dir)
   IMPLICIT NONE
   CHARACTER(*),INTENT(INOUT) :: cfile
@@ -176,8 +167,8 @@ SUBROUTINE read_tvs_mpi(cfile,elem,rlon,rlat,zenith,skin,stmp,clw,elev,odat,oerr
     !nrec=6+5*ntvsch(nn)+(nlev-2)*ntvsch(nn)
     WRITE(cfile(1:4),'(A4)') tvsname(nn)
     filename=trim(dir)//trim(cfile)
-    WRITE(ADM_LOG_FID,'(A,I7.7,2A)') 'MYRANK ',myrank,' is reading a file ',filename
-    WRITE(ADM_LOG_FID,'(A,I7)') 'NUMBER OF RECORDS =  ', nrec
+    WRITE(ADM_LOG_FID,'(A,I7.7,2A)') 'MYRANK ',myrank,' is reading a file ',trim(filename)
+    !WRITE(ADM_LOG_FID,'(A,I7)') 'NUMBER OF RECORDS =  ', nrec
     OPEN(iunit,file=filename,form='unformatted',access='sequential')
     n = 1
     DO
@@ -237,6 +228,7 @@ END SUBROUTINE read_tvs_mpi
 ! LIST ASSIMILATED INSTRUMENT CHANNELS
 !-----------------------------------------------------------------------
 SUBROUTINE set_instrument
+  integer :: ic
   tvsch = 0
   !
   ! NOAA-15 AMSU-A
@@ -246,12 +238,11 @@ SUBROUTINE set_instrument
   tvsinst(2,1) = 15
   tvsinst(3,1) = rttv_inst_amsua
   !tvsch( 1,1)  =  5
-  tvsch( 1,1)  =  6
-  tvsch( 2,1)  =  7
-  tvsch( 3,1)  =  8
+  tvsch( 1,1)  =  7
+  tvsch( 2,1)  =  8
   !tvsch( 4,1)  =  9
   !tvsch( 5,1)  = 10
-  ntvsch(1)=3
+  ntvsch(1)=2
   nfootp(1)=30
   !
   ! NOAA-16 AMSU-A
@@ -260,10 +251,7 @@ SUBROUTINE set_instrument
   tvsinst(1,2) = rttv_plat_noaa
   tvsinst(2,2) = 16
   tvsinst(3,2) = rttv_inst_amsua
-  !tvsch( 1,2)  =  5
   tvsch( 1,2)  =  6
-  !tvsch( 2,2)  =  9
-  !tvsch( 3,2)  = 10
   ntvsch(2)=1
   nfootp(2)=30
   !
@@ -277,8 +265,6 @@ SUBROUTINE set_instrument
   tvsch( 1,3)  =  6
   tvsch( 2,3)  =  7
   tvsch( 3,3)  =  8
-  !tvsch( 4,3)  =  9
-  !tvsch( 5,3)  = 10
   ntvsch(3)=3
   nfootp(3)=30
   !
@@ -291,8 +277,8 @@ SUBROUTINE set_instrument
   !tvsch( 1,4)  =  5
   tvsch( 1,4)  =  6
   tvsch( 2,4)  =  7
-  !tvsch( 3,4)  =  9
-  !tvsch( 4,4)  = 10
+  !tvsch( 4,4)  =  9
+  !tvsch( 5,4)  = 10
   ntvsch(4)=2
   nfootp(4)=30
   !
@@ -302,17 +288,50 @@ SUBROUTINE set_instrument
   tvsinst(1,5) = rttv_plat_metop
   tvsinst(2,5) = 2
   tvsinst(3,5) = rttv_inst_amsua
-  !!tvsch(1,5)  = 4
   !tvsch(1,5)  = 5
   tvsch(1,5)  = 6
   tvsch(2,5)  = 8
-  !!tvsch(5,5)  = 9
-  !!tvsch(6,5)  = 10
-  !!tvsch(7,5)  = 11
-  !!tvsch(8,5)  = 12
-  !!tvsch(9,5)  = 13
   ntvsch(5)=2
   nfootp(5)=30
+  !
+  ! METOP-1 IASI
+  !
+  tvsname(6)   = 'MI01'
+  tvsinst(1,6) = rttv_plat_metop
+  tvsinst(2,6) = 01
+  tvsinst(3,6) = rttv_inst_iasi
+  tvsch(1,6)   = 212
+  tvsch(2,6)   = 246
+  tvsch(3,6)   = 262
+  tvsch(4,6)   = 275
+  ntvsch(6)    =   4
+  nfootp(6)    = 120
+  !
+  ! METOP-2 IASI
+  !
+  tvsname(7)   = 'MI02'
+  tvsinst(1,7) = rttv_plat_metop
+  tvsinst(2,7) = 02
+  tvsinst(3,7) = rttv_inst_iasi
+  tvsch(1,7)   = 212
+  tvsch(2,7)   = 246
+  tvsch(3,7)   = 262
+  tvsch(4,7)   = 275
+  ntvsch(7)    = 4
+  nfootp(7)    = 120
+  !
+  !JPSS-0 (Suomi-NPP)
+  !
+  tvsname(8)   = 'JP00'
+  tvsinst(1,8) = rttv_plat_jpss
+  tvsinst(2,8) = 0
+  tvsinst(3,8) = rttv_inst_atms
+  tvsch( 1,8)  =  7
+  tvsch( 2,8)  =  8
+  tvsch( 3,8)  =  9
+  ntvsch(8)    =  3
+  nfootp(8)    = 32
+
   RETURN
 END SUBROUTINE set_instrument
 !-----------------------------------------------------------------------

@@ -39,6 +39,7 @@ program dstat
   !real(8), allocatable :: ico_lat(:,:), ico_lon(:,:)
   real(4), allocatable :: tmp(:,:)
 
+  REAL(8),ALLOCATABLE :: tmpelm(:,:,:)
   REAL(8),ALLOCATABLE :: tmplon(:,:,:)
   REAL(8),ALLOCATABLE :: tmplat(:,:,:)
   REAL(8),ALLOCATABLE :: tmpzenith(:,:,:)
@@ -133,7 +134,6 @@ program dstat
   ALLOCATE(ntvsgrd(nlon,nlat,ninstrument,1))
   ntvsgrd = 0
   ntvsprofslots=0
-  ntvschan=0
 
   gues_fname='AA15_gues.dat'
   anal_fname='AA15_anal.dat'
@@ -151,6 +151,7 @@ program dstat
   write(*,*) ntvsprofslots
   write(*,*) ntvsprof
 
+  ALLOCATE( tmpelm(             maxtvsprof,ninstrument,2) )
   ALLOCATE( tmplon(             maxtvsprof,ninstrument,2) )
   ALLOCATE( tmplat(             maxtvsprof,ninstrument,2) )
   ALLOCATE( tmpzenith(          maxtvsprof,ninstrument,2) )
@@ -166,14 +167,14 @@ program dstat
   ALLOCATE( tmpqc(     maxtvsch,maxtvsprof,ninstrument,2) )
   ALLOCATE( tmpfoot(            maxtvsprof,ninstrument,2) )
 
-  CALL read_tvs_mpi( gues_fname, &
+  CALL read_tvs_mpi( gues_fname,   tmpelm   (1,1,1), &
             &    tmplon   (1,1,1), tmplat   (1,1,1), &
             &    tmpzenith(1,1,1), tmpskin  (1,1,1), &
             &    tmpstmp  (1,1,1), tmpclw   (1,1,1), &
             &    tmplev (1,1,1,1), tmpdat (1,1,1,1), tmperr(1,1,1,1),&
             &    tmphdxf(1,1,1,1), tmpqc0 (1,1,1,1), tmpfoot (1,1,1))
 
-  CALL read_tvs_mpi( anal_fname, &
+  CALL read_tvs_mpi( anal_fname,   tmpelm   (1,1,1), &
             &    tmplon   (1,1,2), tmplat   (1,1,2), &
             &    tmpzenith(1,1,2), tmpskin  (1,1,2), &
             &    tmpstmp  (1,1,2), tmpclw   (1,1,2), &

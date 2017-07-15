@@ -59,16 +59,13 @@
     implicit none
     integer :: nmem
     integer :: imem
+    integer :: istep
     integer :: g, l, rgnid, n, nv, ip
     integer :: ierr
     integer :: i, j
     character(ADM_MAXFNAME) :: basename
     character(ADM_MAXFNAME) :: fname
-    character(ADM_MAXFNAME) :: mean_restart_basename
-    character(ADM_MAXFNAME) :: mean_history_basename
-    character(ADM_MAXFNAME) :: sprd_restart_basename
-    character(ADM_MAXFNAME) :: sprd_history_basename
-    character(ADM_MAXFNAME) :: sprd_uv_basename
+    character(ADM_MAXFNAME) :: history_basename
 
     character(ADM_MAXFNAME) :: output_basename
     character(ADM_MAXFNAME) :: restart_layername
@@ -131,21 +128,16 @@
     character(LEN=FIO_HMID) :: desc = 'INITIAL/RESTART DATA of PROGNOSTICVARIABLES'
 
     namelist / RESTARTPARAM /    &
-         mean_restart_basename,  &
-         mean_history_basename,  &
-         sprd_restart_basename,  &
-         sprd_history_basename,  &
-         sprd_uv_basename,       &
-         output_basename,        &
+         istep,                  &
+         history_basename,       &
          output_basename,        &
          varname3d,              &
          varname2d,              &
          plevel,                 &
          np,                     &
          fin_llmap_head,         &
-         output_dir,            &
+         output_dir,             &
          cdate, onefile
-
 
     call ADM_proc_init(ADM_MULTI_PRC)
     call ADM_setup('nhm_driver.cnf')
@@ -157,9 +149,9 @@
     call VMTR_setup
 
     allocate( ddd_3d_org(ADM_gall,    ADM_kall,    ADM_lall,    3) ) ! mean vx, vy, vz
-    allocate( ddd_3d    (ADM_gall,    ADM_kall,    ADM_lall, nv3d, 2) )
+    allocate( ddd_3d    (ADM_gall,    ADM_kall,    ADM_lall, nv3d, 1) )
     allocate( ddd_uv    (ADM_gall,    ADM_kall,    ADM_lall,    2) )
-    allocate( ddd_2d    (ADM_gall,           1,    ADM_lall, nv2d, 2) )
+    allocate( ddd_2d    (ADM_gall,           1,    ADM_lall, nv2d, 1) )
     allocate( ddd3_pl   (ADM_gall_pl, ADM_kall, ADM_lall_pl,    5) )
     allocate( ddd_logp  (ADM_gall,    ADM_kall,    ADM_lall,    2) )
     allocate(    sprd_uv(ADM_gall,    ADM_kall,    ADM_lall,    2) )
@@ -170,78 +162,36 @@
     write(ADM_LOG_FID,RESTARTPARAM)
     FLUSH(ADM_LOG_FID)
     write(ADM_LOG_FID,*) trim(varname2d(1)), trim(varname2d(2))
-    write(ADM_LOG_FID,*) 'mean_restart_basename,', trim(mean_restart_basename)
-    write(ADM_LOG_FID,*) 'mean_history_basename,', trim(mean_history_basename)
-    write(ADM_LOG_FID,*) 'sprd_restart_basename,', trim(sprd_restart_basename)
-    write(ADM_LOG_FID,*) 'sprd_history_basename,', trim(sprd_history_basename)
-    write(ADM_LOG_FID,*) 'sprd_uv_basename     ,', trim(sprd_uv_basename)
+    write(ADM_LOG_FID,*) 'history_basename,', trim(history_basename)
     FLUSH(ADM_LOG_FID)
     logp(1:np)=log(plevel(1:np))
-    allocate( ddd_3d_plev(ADM_gall, np, ADM_lall, nv3d, 2) )
+    allocate( ddd_3d_plev(ADM_gall, np, ADM_lall, nv3d, 1) )
 
-    restart_layername='ZSALL40'
+    restart_layername='ZSDEF38'
     surface_layername='ZSSFC1'
     pressure_layername='ZSDEF26'
     !
     !--- < Reading data > ---
     call FIO_setup ! [add] H.Yashiro 20110826
 
-    call FIO_input(    ddd_3d(:,:,:,1,1),mean_restart_basename,'pre',restart_layername,1,ADM_kall,1)
-    call FIO_input(    ddd_3d(:,:,:,2,1),mean_restart_basename,'tem',restart_layername,1,ADM_kall,1)
-    call FIO_input(  ddd_3d_org(:,:,:,1),mean_restart_basename,'vx', restart_layername,1,ADM_kall,1)
-    call FIO_input(  ddd_3d_org(:,:,:,2),mean_restart_basename,'vy', restart_layername,1,ADM_kall,1)
-    call FIO_input(  ddd_3d_org(:,:,:,3),mean_restart_basename,'vz', restart_layername,1,ADM_kall,1)
-    call FIO_input(    ddd_3d(:,:,:,5,1),mean_restart_basename,'w',  restart_layername,1,ADM_kall,1)
-    call FIO_input(    ddd_3d(:,:,:,6,1),mean_restart_basename,'qv', restart_layername,1,ADM_kall,1)
-    call FIO_input(    ddd_3d(:,:,:,7,1),mean_restart_basename,'qc', restart_layername,1,ADM_kall,1)
+    call FIO_input(    ddd_3d(:,2:ADM_kall-1,:,1,1),history_basename,'ms_pres',restart_layername,1,ADM_kall-2,istep)
+    call FIO_input(    ddd_3d(:,2:ADM_kall-1,:,2,1),history_basename,'ms_tem', restart_layername,1,ADM_kall-2,istep)
+    call FIO_input(    ddd_3d(:,2:ADM_kall-1,:,3,1),history_basename,'ms_u',   restart_layername,1,ADM_kall-2,istep)
+    call FIO_input(    ddd_3d(:,2:ADM_kall-1,:,4,1),history_basename,'ms_v',   restart_layername,1,ADM_kall-2,istep)
+    call FIO_input(    ddd_3d(:,2:ADM_kall-1,:,5,1),history_basename,'ms_w',   restart_layername,1,ADM_kall-2,istep)
+    call FIO_input(    ddd_3d(:,2:ADM_kall-1,:,6,1),history_basename,'ms_qv',  restart_layername,1,ADM_kall-2,istep)
+    call FIO_input(    ddd_3d(:,2:ADM_kall-1,:,7,1),history_basename,'ms_qc',  restart_layername,1,ADM_kall-2,istep)
 
     do nv = 1, nv2d
-      call FIO_input(ddd_2d(:,:,:,nv,1),mean_history_basename,trim(varname2d(nv)), surface_layername,1,1,1)
+      call FIO_input(ddd_2d(:,:,:,nv,1),history_basename,trim(varname2d(nv)), surface_layername,1,1,istep)
       write(ADM_LOG_FID,'(A15,2F15.5)') trim(varname2d(nv)), &
             minval(ddd_2d(:,1,:,nv,1)), maxval(ddd_2d(:,1,:,nv,1))
     end do
 
-    ! READ SPREAD
-    call FIO_input(    ddd_3d(:,:,:,1,2),sprd_restart_basename,'pre',restart_layername,1,ADM_kall,1)
-    call FIO_input(    ddd_3d(:,:,:,2,2),sprd_restart_basename,'tem',restart_layername,1,ADM_kall,1)
-    call FIO_input(    ddd_3d(:,:,:,5,2),sprd_restart_basename,'w',  restart_layername,1,ADM_kall,1)
-    call FIO_input(    ddd_3d(:,:,:,6,2),sprd_restart_basename,'qv', restart_layername,1,ADM_kall,1)
-    call FIO_input(    ddd_3d(:,:,:,7,2),sprd_restart_basename,'qc', restart_layername,1,ADM_kall,1)
-
-    do nv = 1, nv2d
-      call FIO_input(ddd_2d(:,:,:,nv,2),sprd_history_basename,trim(varname2d(nv)), surface_layername,1,1,1)
-      write(ADM_LOG_FID,'(A15,2F15.5)') trim(varname2d(nv)), &
-            minval(ddd_2d(:,1,:,nv,2)), maxval(ddd_2d(:,1,:,nv,2))
-    end do
-
-    do l = 1, ADM_lall
-      rgnid=ADM_prc_tab(l,ADM_prc_me)
-      write(ADM_LOG_FID,*) l, rgnid
-      call MISC_make_idstr(fname,Trim(sprd_uv_basename),'rgn',rgnid)
-      write(ADM_LOG_FID,*) trim(fname)
-      open(1,file=trim(fname),form='unformatted',access='direct',&
-           recl=4*ADM_gall*ADM_kall)
-      do n = 1,2
-        read(1,rec=n) sprd_uv(:,:,l,n)
-      end do
-      close(1)
-    end do
-    
-    ddd_3d(:,:,:,3,2)=dble(sprd_uv(:,:,:,1))
-    ddd_3d(:,:,:,4,2)=dble(sprd_uv(:,:,:,2))
-
-    call GTL_generate_uv(                   &
-         ddd_3d(:,:,:,3,1), ddd3_pl(:,:,:,1), &
-         ddd_3d(:,:,:,4,1), ddd3_pl(:,:,:,2), &
-         ddd_3d_org(:,:,:,1), ddd3_pl(:,:,:,3), &
-         ddd_3d_org(:,:,:,2), ddd3_pl(:,:,:,4), &
-         ddd_3d_org(:,:,:,3), ddd3_pl(:,:,:,5), icos=0)
-
-
     ddd_logp(:,:,:,:)=log(ddd_3d(:,:,:,1,:)*0.01)
     ddd_3d(:,:,:,1,:)=ddd_3d(:,:,:,1,:)*0.01d0
     do n = 1, ADM_kall
-      write(ADM_LOG_FID,*) n, ddd_logp(1,n,1,1:2)
+      write(ADM_LOG_FID,*) n, ddd_logp(1,n,1,1)
     end do
 
     allocate( cc(ADM_kall-2) )
@@ -250,7 +200,7 @@
     allocate( by(np) )
 
 
-    do i = 1, 2
+    do i = 1, 1
       do l = 1, ADM_lall
       do g = 1, ADM_gall
         if( ddd_3d(g,2,l,1,1) >= 1000.0d0 ) then
@@ -363,7 +313,7 @@
 
       var_out_3d(:,:,:,:,:)=0.0d0
       var_out_2d(:,:,:,:,:)=0.0d0
-      do i = 1, 2
+      do i = 1, 1
         do nv = 1, nv3d-1
         do ip = 1, np
         do n=nstart(l),nend(l)
@@ -417,7 +367,7 @@
         fname=trim(output_dir)//'/'//trim(cdate)//'.dat'
         open(1,file=trim(fname),form='unformatted',access='direct',recl=4*imax*jmax)
         n=1
-        do i = 1, 2
+        do i = 1, 1
           do nv = 1, nv3d-1
             do ip = 1, np
               write(1,rec=n) sngL(var_3d(:,:,ip,nv,i))

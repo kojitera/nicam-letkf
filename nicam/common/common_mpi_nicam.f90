@@ -531,12 +531,12 @@ SUBROUTINE read_ens_mpi(file,member,v3d,v2d)
   ll = CEILING(REAL(member)/REAL(nprocs))
   DO l=1,ll
     tmp_time(1)=MPI_WTIME()
-    im = myrank+1 + (l-1)*nprocs
-    IF(im <= member) THEN
+    !im = myrank+1 + (l-1)*nprocs
+    im = myrank + (l-1)*nprocs ! 2017.05.07 Koji
+    IF(im <= member-1) THEN
       WRITE(cmem,'(I6.6)') im
-      !filename1=trim(gues_basedir)//'/'//CDATE//'/'//cmem//'/restart_da_GL07RL00Ez94'//trim(CDATE14)  ! KK
-      filename1=trim(gues_basedir)//'/'//CDATE//'/'//cmem//'/restart'//trim(CDATE14)  ! KK
-      filename2=trim(gues_basedir)//'/'//CDATE//'/'//cmem//'/history'
+      filename1=trim(gues_basedir)//'/'//CDATE//'/mem'//cmem//'/restart_da'  ! KK
+      filename2=trim(gues_basedir)//'/'//CDATE//'/mem'//cmem//'/history'
       WRITE(ADM_LOG_FID,'(A,I3.3,2A)') &
             'MYRANK ',myrank,' is reading a file ',trim(filename1)
       CALL read_icogrd(filename1,filename2,v3dg,v2dg)
@@ -591,10 +591,11 @@ SUBROUTINE write_ens_mpi(file,member,v3d,v2d)
     tmp_time(2)=MPI_WTIME()
     time_IO(3)=time_IO(3)+tmp_time(2)-tmp_time(1)
 
-    im = myrank+1 + (l-1)*nprocs
-    IF(im <= member) THEN
+    !im = myrank+1 + (l-1)*nprocs
+    im = myrank + (l-1)*nprocs ! 2017.05.07 Koji
+    IF(im <= member-1) THEN
       WRITE(cmem,'(I6.6)') im
-      filename1=trim(anal_basedir)//'/'//CDATE//'/'//cmem//'/restart' 
+      filename1=trim(anal_basedir)//'/'//CDATE//'/mem'//cmem//'/restart_da' 
       CALL write_icogrd(filename1,filename2,v3dg,v2dg)
     END IF
     tmp_time(3)=MPI_WTIME()
@@ -676,9 +677,15 @@ SUBROUTINE write_ensmspr_mpi(file,member,v3d,v2d)
     time_IO(6)=time_IO(6)+tmp_time(3)-tmp_time(2)
 
   IF(myrank == 0) THEN
-    WRITE(filename1(1:7),'(A4,A3)') file,'_me'
-    !filename2='history_me'
-    filename2='history_'//file//'_me'
+    IF(trim(file)=='anal') THEN
+      filename1=trim(anal_basedir)//'/'//CDATE//'/'//trim(file)//'_me'
+      filename2=trim(anal_basedir)//'/'//CDATE//'/'//'history_'//file//'_me'
+    ELSE IF(trim(file)=='gues') THEN
+      filename1=trim(gues_basedir)//'/'//CDATE//'/'//trim(file)//'_me'
+      filename2=trim(gues_basedir)//'/'//CDATE//'/'//'history_'//file//'_me'
+    END IF
+    !WRITE(filename1(1:7),'(A4,A3)') file,'_me'
+    !filename2='history_'//file//'_me'
     WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing a file ',filename1
     CALL write_icogrd(filename1,filename2,v3dg,v2dg)
   END IF
@@ -718,9 +725,15 @@ SUBROUTINE write_ensmspr_mpi(file,member,v3d,v2d)
     time_IO(9)=time_IO(9)+tmp_time(6)-tmp_time(5)
 
   IF(myrank == 0) THEN
-    WRITE(filename1(1:7),'(A4,A3)') file,'_sp'
-    !filename2='history_sp'
-    filename2='history_'//file//'_sp'
+    IF(trim(file)=='anal') THEN
+      filename1=trim(anal_basedir)//'/'//CDATE//'/'//trim(file)//'_sp'
+      filename2=trim(anal_basedir)//'/'//CDATE//'/'//'history_'//file//'_sp'
+    ELSE IF(trim(file)=='gues') THEN
+      filename1=trim(gues_basedir)//'/'//CDATE//'/'//trim(file)//'_sp'
+      filename2=trim(gues_basedir)//'/'//CDATE//'/'//'history_'//file//'_sp'
+    END IF
+    !WRITE(filename1(1:7),'(A4,A3)') file,'_sp'
+    !filename2='history_'//file//'_sp'
     WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing a file ',filename1
     CALL write_icogrd(filename1,filename2,v3dg,v2dg)
   END IF
