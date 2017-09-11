@@ -94,6 +94,7 @@ SUBROUTINE set_letkf_obs
   INTEGER :: nj(0:nlat-1)
   INTEGER :: njs(1:nlat-1)
   CHARACTER(21) :: obsfile='prepbufr_TTNNNNNN.dat'
+  CHARACTER(256) :: obsfname=''
 
   WRITE(ADM_LOG_FID,'(A)') 'Hello from set_letkf_obs'
 
@@ -110,8 +111,11 @@ SUBROUTINE set_letkf_obs
     DO islot=1,nslots
       im = myrank+1
       WRITE(obsfile(10:17),'(I2.2,I6.6)') islot,im
-      WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ',obsfile
-      CALL get_nobs(obsfile,8,nobslots(islot))
+      obsfname=trim(obsprep_basedir)//'/'//trim(obsfile)
+      WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ',obsfname
+      !WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ',obsfile
+      CALL get_nobs(obsfname,8,nobslots(islot))
+      !CALL get_nobs(obsfile,8,nobslots(islot))
     END DO
   END IF
   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
@@ -150,8 +154,10 @@ SUBROUTINE set_letkf_obs
       im = myrank+1 + nprocs * l
       IF(im > nbv) EXIT
       WRITE(obsfile(10:17),'(I2.2,I6.6)') islot,im
+      obsfname=trim(obsprep_basedir)//'/'//trim(obsfile) !!! 
       WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ',obsfile
-      CALL read_obs2(obsfile,nobslots(islot),&
+      !CALL read_obs2(obsfile,nobslots(islot),&
+      CALL read_obs2(obsfname,nobslots(islot),&
        & tmpelm(nn+1:nn+nobslots(islot)),tmplon(nn+1:nn+nobslots(islot)),&
        & tmplat(nn+1:nn+nobslots(islot)),tmplev(nn+1:nn+nobslots(islot)),&
        & tmpdat(nn+1:nn+nobslots(islot)),tmperr(nn+1:nn+nobslots(islot)),&
@@ -166,8 +172,10 @@ SUBROUTINE set_letkf_obs
     DO islot=1,nslots
       IF(nobslots(islot) == 0) CYCLE
       WRITE(obsfile(10:17),'(I2.2,I6.6)') islot,1
+      obsfname=trim(obsprep_basedir)//'/'//trim(obsfile)
       WRITE(ADM_LOG_FID,'(A,I3.3,3A)') 'MYRANK ',myrank,' is reading a file ',obsfile,' [do not use h(x) and qc]'
-      CALL read_obs2(obsfile,nobslots(islot),&
+      !CALL read_obs2(obsfile,nobslots(islot),&
+      CALL read_obs2(obsfname,nobslots(islot),&
        & tmpelm(nn+1:nn+nobslots(islot)),tmplon(nn+1:nn+nobslots(islot)),&
        & tmplat(nn+1:nn+nobslots(islot)),tmplev(nn+1:nn+nobslots(islot)),&
        & tmpdat(nn+1:nn+nobslots(islot)),tmperr(nn+1:nn+nobslots(islot)),&
@@ -408,7 +416,7 @@ SUBROUTINE set_letkf_tvs
   IMPLICIT NONE
   INTEGER,PARAMETER :: err_unit=6
   INTEGER,PARAMETER :: verbosity_level=1
-  REAL(r_size),PARAMETER :: gross_error=5.0d0
+  REAL(r_size),PARAMETER :: gross_error=3.0d0
   CHARACTER(16) :: cfile='inst00000000.dat'
 
   REAL(r_size),ALLOCATABLE :: tmpelm(:,:,:)
@@ -429,6 +437,7 @@ SUBROUTINE set_letkf_tvs
   !REAL(r_size),ALLOCATABLE :: tmpwgt(:,:,:,:,:)
   REAL(r_size),ALLOCATABLE :: tmpdum(:,:,:,:,:)
   REAL(r_size),ALLOCATABLE :: tmppred(:,:,:,:,:)
+  REAL(r_size),ALLOCATABLE :: tmpqc_out(:,:,:,:)
   INTEGER,ALLOCATABLE :: tmpqc0(:,:,:,:,:)
   INTEGER,ALLOCATABLE :: tmpqc(:,:,:,:)
   INTEGER,ALLOCATABLE :: tmpfoot(:,:,:)
@@ -464,7 +473,7 @@ SUBROUTINE set_letkf_tvs
   ALLOCATE(ntvsgrd(nlon,nlat,ninstrument,nslots))
   ntvsgrd = 0
   ntvsprofslots=0
-  ntvschan=0
+  !ntvschan=0
   WRITE(ADM_LOG_FID,'(A)') 'Hello from set_letkf_tvs'
   CALL set_instrument
 
@@ -473,7 +482,7 @@ SUBROUTINE set_letkf_tvs
     DO islot=1,nslots
       WRITE(cfile(5:12),'(I2.2,I6.6)') islot, im
       write(ADM_LOG_FID,*) cfile
-      CALL get_ntvs_mpi(cfile)
+      CALL get_ntvs_mpi(cfile,dir=trim(obssate_basedir))
       ntvsprofslots(:,islot) = ntvsprof(:)
     END DO
   END IF
@@ -514,6 +523,7 @@ SUBROUTINE set_letkf_tvs
     ALLOCATE( tmppred( maxvbc,maxtvsch,maxtvsprof,ninstrument,nslots) )
     ALLOCATE( tmpqc0(    maxtvsch,maxtvsprof,ninstrument,nslots,nbv) )
     ALLOCATE( tmpqc(    maxtvsch,maxtvsprof,ninstrument,nslots) )
+    ALLOCATE( tmpqc_out(    maxtvsch,maxtvsprof,ninstrument,nslots) )
     ALLOCATE( tmpfoot(  maxtvsprof,ninstrument,nslots) )
     ALLOCATE( depstat(  maxtvsch,maxtvsfoot,ninstrument) )
     ALLOCATE( num_depstat(  maxtvsch,maxtvsfoot,ninstrument) )
@@ -524,6 +534,7 @@ SUBROUTINE set_letkf_tvs
     !tmpwgt =0.d0
     tmperr = 0.0d0
     tmpdat = 0.0d0
+    tmpdep = 0.0d0
     tmpdat_tmp = 0.0d0
 
     timeslots1: DO islot=1,nslots
@@ -541,7 +552,7 @@ SUBROUTINE set_letkf_tvs
             &    tmpzenith(1,1,islot), tmpskin(1,1,islot), &
             &    tmpstmp  (1,1,islot), tmpclw (1,1,islot), &
             &    tmplev (1,1,1,islot,im), tmpdat_tmp(1,1,1,islot,im), tmperr (1,1,1,islot),&
-            &    tmphdxf(1,1,1,islot,im), tmpqc0 (1,1,1,islot,im), tmpfoot(1,1,islot)) 
+            &    tmphdxf(1,1,1,islot,im), tmpqc0 (1,1,1,islot,im), tmpfoot(1,1,islot), dir=trim(obssate_basedir)) 
           l=l+1
         END DO
       END IF
@@ -560,7 +571,7 @@ SUBROUTINE set_letkf_tvs
             &    tmpzenith(1,1,islot), tmpskin(1,1,islot), &
             &    tmpstmp  (1,1,islot), tmpclw (1,1,islot), &
             &    tmpdum (1,1,1,1,islot), tmpdat (1,1,1,islot), tmperr (1,1,1,islot),&
-            &    tmpdep(1,1,1,islot), tmpqc (1,1,1,islot), tmpfoot(1,1,islot))
+            &    tmpdep(1,1,1,islot), tmpqc (1,1,1,islot), tmpfoot(1,1,islot), dir=trim(obssate_basedir))
         END IF
       END DO
     END IF
@@ -660,11 +671,15 @@ SUBROUTINE set_letkf_tvs
       DO nn=1,ninstrument
         DO n=1,ntvsprofslots(nn,islot)
           DO ic=1,ntvsch(nn)
-            tmpqc(ic,n,nn,islot) = MINVAL(tmpqc0(ic,n,nn,islot,:))
-            !IF(tmpqc(ic,n,nn,islot) /= 1) CYCLE
-            IF(tmpqc(ic,n,nn,islot) /= 1) THEN
-              tmpdep(ic,n,nn,islot)=0
-            END IF
+            tmpqc(ic,n,nn,islot) = SUM(tmpqc0(ic,n,nn,islot,:))
+            IF(REAL(tmpqc(ic,n,nn,islot)) < 0.6*REAL(nbv)) THEN
+              tmpqc_out(ic,n,nn,islot)=-REAL(tmpqc(ic,n,nn,islot))
+              tmpqc(ic,n,nn,islot)=0
+            ELSE
+              tmpqc_out(ic,n,nn,islot)=REAL(tmpqc(ic,n,nn,islot))
+              tmpqc(ic,n,nn,islot)=1
+            END IF 
+
             tmpdep(ic,n,nn,islot) = tmphdxf(ic,n,nn,islot,1)
             DO i=2,nbv
               tmpdep(ic,n,nn,islot) = tmpdep(ic,n,nn,islot) &
@@ -678,19 +693,11 @@ SUBROUTINE set_letkf_tvs
             tmpdep(ic,n,nn,islot) = tmpdat(ic,n,nn,islot) &
                                 & - tmpdep(ic,n,nn,islot) ! y-Hx
             IF(ABS(tmpdep(ic,n,nn,islot)) > gross_error*tmperr(ic,n,nn,islot)) THEN ! Gross error check
+              tmpqc_out(ic,n,nn,islot)=-2.0*real(nbv)
               tmpqc (ic,n,nn,islot) = 0
-              tmperr(ic,n,nn,islot) = 0.0d0
             ELSE IF(tmpdat(ic,n,nn,islot)/=tmpdat(ic,n,nn,islot)) then
+              tmpqc_out(ic,n,nn,islot)=-3.0*real(nbv)
               tmpqc (ic,n,nn,islot) = 0
-              !
-              ! numbering for the every channel unit instead of sensor unit
-              !
-              ntvs = ntvs + 1
-              !
-              ! weighting function standardization (summed at mpi_allreduce)
-              !
-              !wgtmax=MAXVAL(tmpwgt(:,ic,n,nn,islot))
-              !tmpwgt(:,ic,n,nn,islot) = tmpwgt(:,ic,n,nn,islot) / wgtmax
             END IF
           END DO
         END DO
@@ -707,11 +714,16 @@ SUBROUTINE set_letkf_tvs
           do n = 1, ntvsprofslots(nn,islot)
             do ic = 1, ntvsch(nn)
               if(tmpqc(ic,n,nn,islot)==1) then
+              !if(tvsch(ic,nn)>=5 .and. tmpqc(ic,n,nn,islot)==1) then
                 depstat(ic,tmpfoot(n,nn,islot),nn)=depstat(ic,tmpfoot(n,nn,islot),nn)+&
                                                 tmpdep(ic,n,nn,islot)
                 num_depstat(ic,tmpfoot(n,nn,islot),nn)=num_depstat(ic,tmpfoot(n,nn,islot),nn)+1
                 !write(ADM_LOG_FID,'(5i5,F9.3)') islot, nn, n, ic,
                 !tmpfoot(n,nn,islot), tmpdep(ic,n,nn,islot) 
+              !else if(tvsch(ic,nn)<=4) then
+              !  depstat(ic,tmpfoot(n,nn,islot),nn)=depstat(ic,tmpfoot(n,nn,islot),nn)+&
+              !                                  tmpdep(ic,n,nn,islot)
+              !  num_depstat(ic,tmpfoot(n,nn,islot),nn)=num_depstat(ic,tmpfoot(n,nn,islot),nn)+1
               end if
             end do
           end do
@@ -733,7 +745,7 @@ SUBROUTINE set_letkf_tvs
 
       do nn = 1, ninstrument
         do ifoot = 1, maxtvsfoot
-          write(101,'(A,i5,15F9.3)') tvsname(nn), ifoot, &
+          write(101,'(A,i5,20F10.3)') tvsname(nn), ifoot, &
                (depstat(ic,ifoot,nn),ic=1,ntvsch(nn)), &
                (real(num_depstat(ic,ifoot,nn)),ic=1,ntvsch(nn))
         end do
@@ -743,18 +755,31 @@ SUBROUTINE set_letkf_tvs
       do islot = 1, nslots
         do nn = 1, ninstrument
           do n = 1, ntvsprofslots(nn,islot)
-            write(100,'(A,24F9.3)') tvsname(nn), tmplon(n,nn,islot),          &
+            write(100,'(A,50F10.3)') tvsname(nn), tmplon(n,nn,islot),          &
                                     tmplat(n,nn,islot),                       &
                                     real(tmpfoot(n,nn,islot)),                &
                                     tmplev(1:ntvsch(nn),n,nn,islot,1)*0.01d0, &
                                     tmpdat(1:ntvsch(nn),n,nn,islot),          &
                                     tmpdep(1:ntvsch(nn),n,nn,islot),          &
-                                    real(tmpqc(1:ntvsch(nn),n,nn,islot))
+                                    tmpqc_out(1:ntvsch(nn),n,nn,islot),       &
+                                    tmpskin(n,nn,islot)
           end do
         end do
       end do
       close(100)
     end if
+
+!    do islot = 1, nslots
+!      do nn = 1, ninstrument
+!        do n = 1, ntvsprofslots(nn,islot)
+!          do ic = 1, ntvsch(nn)
+!            if(tvsch(ic,nn) <= 4) then
+!              tmpqc(ic,n,nn,islot)=0
+!            end if
+!          end do
+!        end do
+!      end do
+!    end do
 
   END IF
 !
