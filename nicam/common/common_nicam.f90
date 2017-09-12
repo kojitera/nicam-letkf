@@ -91,11 +91,14 @@ MODULE common_nicam
   CHARACTER(14),SAVE :: CDATE14='' ! [add] Koji 20141024
   CHARACTER(10),SAVE :: ODATE
   CHARACTER(10),SAVE :: TDATE
-  CHARACTER(128),SAVE :: gues_basedir ! [add] Koji 20140207
-  CHARACTER(128),SAVE :: infl_basedir ! [add] Koji 20140208
-  CHARACTER(128),SAVE :: anal_basedir ! [add] Koji 20140916
-  CHARACTER(128),SAVE :: obsprep_basedir ! [add] Koji 20160706
-  CHARACTER(128),SAVE :: obssate_basedir ! [add] Koji 20160706
+  CHARACTER(128),SAVE :: gues_basedir     ! [add] Koji 20140207
+  CHARACTER(128),SAVE :: infl_basedir     ! [add] Koji 20140208
+  CHARACTER(128),SAVE :: anal_basedir     ! [add] Koji 20140916
+  CHARACTER(128),SAVE :: obsprep_basedir  ! [add] Koji 20160706
+  CHARACTER(128),SAVE :: obssate_basedir  ! [add] Koji 20160706
+  CHARACTER(64), SAVE :: restart_basename ! [add] Koji 20170911
+  CHARACTER(64), SAVE :: history_basename ! [add] Koji 20170911
+
   character(LEN=16), private, save :: restart_layername = ''
 
   REAL(r_size),SAVE :: dlon
@@ -112,6 +115,10 @@ MODULE common_nicam
   REAL(r_size),SAVE :: TIME_CTIME
 
   type(datainfo),SAVE::   dinfo
+
+  LOGICAL, SAVE  :: start_mem_zero = .true.		! [add] Koji 2017.09.08  
+  LOGICAL, SAVE  :: flush_text     = .false.	! [add] Koji 2017.09.08
+  CHARACTER(3)   :: dir_prefix     = ''         ! [add] Koji 2017.09.08
 
 CONTAINS
 !-----------------------------------------------------------------------
@@ -183,7 +190,12 @@ SUBROUTINE set_common_nicam
     sigma_obs,              & ! [add] Koji 20141128
     sigma_obsv,             & ! [add] Koji 20141128
     sigma_obst,             & ! [add] Koji 20141128
-    mnginfo
+    mnginfo,                &
+    start_mem_zero,         & ! [add] Koji 2017.09.08
+    flush_text,             & ! [add] Koji 2017.09.08
+    dir_prefix,             &
+    restart_basename,       & ! [add] Koji 2017.09.11
+    history_basename          ! [add] Koji 2017.09.11
 
   open(1,file='time.cnf')
   read(1,nml=current_time)
@@ -770,6 +782,9 @@ SUBROUTINE write_icogrd(filename1,filename2,v3d,v2d)
     call fio_mk_fname(infname,trim(filename1),'pe',p-1,6)
     allocate( prc_tab_C(MNG_prc_rnum(p))   )
     prc_tab_C(:) = MNG_prc_tab(:,p)-1
+    WRITE(ADM_LOG_FID,*) 'TEST(MNG_prc_rnum(p)) = ', MNG_prc_rnum(p)
+    WRITE(ADM_LOG_FID,*) 'TEST(MNG_prc_tab(:,p) = ', MNG_prc_tab(:,p)
+
     call fio_register_file(ifid(p),trim(infname))
     call fio_fopen(ifid(p),FIO_FWRITE)
     call fio_put_write_pkginfo(ifid(p),desc,"")

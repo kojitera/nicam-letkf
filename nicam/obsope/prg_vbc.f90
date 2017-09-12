@@ -47,7 +47,7 @@ PROGRAM vbc
 
   CALL read_history_init
   WRITE(ADM_LOG_FID,*) 'read_history_init'
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   tmp_time(3)=MPI_WTIME()
   time(2)=tmp_time(3)-tmp_time(2)
@@ -56,7 +56,7 @@ PROGRAM vbc
 
   CALL read_history(-1)
   WRITE(ADM_LOG_FID,*) 'read_history'
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   tmp_time(5)=MPI_WTIME()
   time(3)=time(3)+ (tmp_time(5)-tmp_time(4))
@@ -68,7 +68,7 @@ PROGRAM vbc
 
   CALL obsope_main(-1)
   WRITE(ADM_LOG_FID,*) 'obsope_main'
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   tmp_time(7)=MPI_WTIME()
   time(5)=time(5)+ (tmp_time(7)-tmp_time(6))

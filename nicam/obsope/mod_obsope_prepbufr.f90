@@ -138,7 +138,7 @@ SUBROUTINE obsope_prepbufr_read
       CASE DEFAULT
         WRITE(ADM_LOG_FID,*) 'Unknown observation type'
         WRITE(ADM_LOG_FID,*) wk(:,i)
-        FLUSH(ADM_LOG_FID)
+        IF(flush_text) FLUSH(ADM_LOG_FID)
     END SELECT
   END DO
 
@@ -194,7 +194,7 @@ SUBROUTINE interpolate_prepbufr
          !WRITE(ADM_LOG_FID,'(A,7i8)') 'TEST', prep_n1_index(i), prep_n2_index(i), prep_n3_index(i), &
          !                     &  ks, ke, l, id_obs_prep(i)
          !WRITE(ADM_LOG_FID,'(4F12.5)') prep_elem(i), prep_lev(i), prep_odat(i), prep_typ(i)
-         !FLUSH(ADM_LOG_FID)
+         !IF(flush_text) FLUSH(ADM_LOG_FID)
          prep_obsdata_tmp(i) = &
              ( fac1 * icodata4_3d(prep_n1_index(i),ks,l,id_obs_prep(i)) &
              + fac2 * icodata4_3d(prep_n2_index(i),ks,l,id_obs_prep(i)) &
@@ -250,7 +250,7 @@ SUBROUTINE output_prepbufr(imem)
   WHERE( prep_lon(:) < 0.0 ) prep_lon(:)=prep_lon(:)+360.0
 
   IF(ADM_prc_me == 1) THEN
-    WRITE(cimem(1:6),'(I6.6)') imem + 1
+    WRITE(cimem(1:6),'(I6.6)') imem
     fname=TRIM(output_basename_prepbufr)//TRIM(cimem)//'.dat'
     OPEN(1, FILE=TRIM(fname),FORM='unformatted',ACCESS='sequential')
     DO i = 1, nobs_prepbufr

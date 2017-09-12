@@ -90,10 +90,12 @@ SUBROUTINE set_letkf_obs
   REAL(r_size),ALLOCATABLE :: tmp2hdxf(:,:)
   INTEGER,ALLOCATABLE :: nobslots(:)
   !INTEGER :: nobslots(nslots)
-  INTEGER :: n,i,j,ierr,islot,nn,l,im
+  INTEGER :: n,i,j,ierr,islot,nn,l,im, im0
   INTEGER :: nj(0:nlat-1)
   INTEGER :: njs(1:nlat-1)
   CHARACTER(21) :: obsfile='prepbufr_TTNNNNNN.dat'
+  CHARACTER(256) :: obsfname=''
+  LOGICAL :: readobs_dummy = .true.
 
   WRITE(ADM_LOG_FID,'(A)') 'Hello from set_letkf_obs'
 
@@ -109,9 +111,11 @@ SUBROUTINE set_letkf_obs
   IF(myrank == 0) THEN !Assuming all members have the identical obs records
     DO islot=1,nslots
       im = myrank+1
+      IF(start_mem_zero) im=myrank
       WRITE(obsfile(10:17),'(I2.2,I6.6)') islot,im
-      WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ',obsfile
-      CALL get_nobs(obsfile,8,nobslots(islot))
+      obsfname=trim(obsprep_basedir)//'/'//trim(obsfile)
+      WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ', TRIM(obsfname)
+      CALL get_nobs(obsfname,8,nobslots(islot))
     END DO
   END IF
   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
@@ -143,39 +147,52 @@ SUBROUTINE set_letkf_obs
 ! reading observation data
 !
   nn=0
-  timeslots: DO islot=1,nslots
+  DO islot=1,nslots
     IF(nobslots(islot) == 0) CYCLE
     l=0
     DO
-      im = myrank+1 + nprocs * l
-      IF(im > nbv) EXIT
+      IF(start_mem_zero) THEN
+        im  = myrank + nprocs * l
+        im0 = im + 1
+        IF(im > nbv-1) EXIT
+        readobs_dummy = .false.
+      ELSE
+        im  = myrank+1 + nprocs * l
+        im0 = im
+        IF(im > nbv) EXIT
+        readobs_dummy = .false.
+      END IF
       WRITE(obsfile(10:17),'(I2.2,I6.6)') islot,im
-      WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ',obsfile
-      CALL read_obs2(obsfile,nobslots(islot),&
-       & tmpelm(nn+1:nn+nobslots(islot)),tmplon(nn+1:nn+nobslots(islot)),&
-       & tmplat(nn+1:nn+nobslots(islot)),tmplev(nn+1:nn+nobslots(islot)),&
-       & tmpdat(nn+1:nn+nobslots(islot)),tmperr(nn+1:nn+nobslots(islot)),&
-       &tmphdxf(nn+1:nn+nobslots(islot),im),tmpqc0(nn+1:nn+nobslots(islot),im),&
+      obsfname=trim(obsprep_basedir)//'/'//trim(obsfile) !!! 
+      WRITE(ADM_LOG_FID,'(A,I3.3,2A)') 'MYRANK ', myrank,' is reading a file ', TRIM(obsfname)
+      CALL read_obs2(obsfname,nobslots(islot),&
+       & tmpelm(nn+1:nn+nobslots(islot)),      tmplon(nn+1:nn+nobslots(islot)),     &
+       & tmplat(nn+1:nn+nobslots(islot)),      tmplev(nn+1:nn+nobslots(islot)),     &
+       & tmpdat(nn+1:nn+nobslots(islot)),      tmperr(nn+1:nn+nobslots(islot)),     &
+       & tmphdxf(nn+1:nn+nobslots(islot),im0), tmpqc0(nn+1:nn+nobslots(islot),im0), &
        & tmptyp(nn+1:nn+nobslots(islot)))
       l = l+1
     END DO
     nn = nn + nobslots(islot)
-  END DO timeslots
-  IF(myrank+1 > nbv) THEN
+  END DO
+
+  IF(readobs_dummy) THEN
     nn=0
     DO islot=1,nslots
       IF(nobslots(islot) == 0) CYCLE
       WRITE(obsfile(10:17),'(I2.2,I6.6)') islot,1
-      WRITE(ADM_LOG_FID,'(A,I3.3,3A)') 'MYRANK ',myrank,' is reading a file ',obsfile,' [do not use h(x) and qc]'
-      CALL read_obs2(obsfile,nobslots(islot),&
-       & tmpelm(nn+1:nn+nobslots(islot)),tmplon(nn+1:nn+nobslots(islot)),&
-       & tmplat(nn+1:nn+nobslots(islot)),tmplev(nn+1:nn+nobslots(islot)),&
-       & tmpdat(nn+1:nn+nobslots(islot)),tmperr(nn+1:nn+nobslots(islot)),&
-       & tmpdep(nn+1:nn+nobslots(islot)),tmpqc(nn+1:nn+nobslots(islot)),& ! tmpdep and tmpqc here are just dummy variables
-       & tmptyp(nn+1:nn+nobslots(islot)))
+      obsfname=trim(obsprep_basedir)//'/'//trim(obsfile)
+      WRITE(ADM_LOG_FID,'(A,I3.3,3A)') 'MYRANK ', myrank, ' is reading a file ', TRIM(obsfname),' [do not use h(x) and qc]'
+      CALL read_obs2(obsfname,nobslots(islot),&
+       & tmpelm(nn+1:nn+nobslots(islot)), tmplon(nn+1:nn+nobslots(islot)), &
+       & tmplat(nn+1:nn+nobslots(islot)), tmplev(nn+1:nn+nobslots(islot)), &
+       & tmpdat(nn+1:nn+nobslots(islot)), tmperr(nn+1:nn+nobslots(islot)), &
+       & tmpdep(nn+1:nn+nobslots(islot)), tmpqc(nn+1:nn+nobslots(islot)),  & ! tmpdep and tmpqc here are just dummy variables
+       & tmptyp(nn+1:nn+nobslots(islot))) 
       nn = nn + nobslots(islot)
     END DO
   END IF
+  FLUSH(ADM_LOG_FID)
 
   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
   ALLOCATE(wk2d(nobs,nbv))
@@ -189,7 +206,6 @@ SUBROUTINE set_letkf_obs
   CALL MPI_ALLREDUCE(iwk2d,tmpqc0,nobs*nbv,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
   DEALLOCATE(iwk2d)
 
-!!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(n,i)
   DO n=1,nobs
     tmpqc(n) = MINVAL(tmpqc0(n,:))
     IF(tmpqc(n) /= 1) CYCLE
@@ -203,14 +219,9 @@ SUBROUTINE set_letkf_obs
     END DO
     tmpdep(n) = tmpdat(n) - tmpdep(n) ! y-Hx
     IF(ABS(tmpdep(n)) > gross_error*tmperr(n)) THEN !gross error
-      !tmpqc(n) = 0
       tmpqc(n) = -1
-  !    if(tmpelm(n)==id_ps_obs) then
-  !      WRITE(ADM_LOG_FID,*) tmpdat(n), tmpdep(n)
-  !    end if
     END IF
   END DO
-!!$OMP END PARALLEL DO
   DEALLOCATE(tmpqc0)
 
   if( myrank == 0 ) then
@@ -244,19 +255,6 @@ SUBROUTINE set_letkf_obs
   nn = 0
   DO n=1,nobs
     IF(tmpqc(n) /= 1) CYCLE
-!    IF(tmplat(n) < MINVAL(lat1) .OR. MAXVAL(lat1) < tmplat(n)) THEN
-!      dlat = MIN( ABS(MINVAL(lat1)-tmplat(n)),ABS(MAXVAL(lat1)-tmplat(n)) )
-!      IF(dlat > dlat_zero) CYCLE
-!    END IF
-!    IF(tmplon(n) < MINVAL(lon1) .OR. MAXVAL(lon1) < tmplon(n)) THEN
-!      dlon1 = ABS(MINVAL(lon1) - tmplon(n))
-!      dlon1 = MIN(dlon1,360.0d0-dlon1)
-!      dlon2 = ABS(MAXVAL(lon1) - tmplon(n))
-!      dlon2 = MIN(dlon2,360.0d0-dlon2)
-!      dlon =  MIN(dlon1,dlon2) &
-!         & * pi*re*COS(tmplat(n)*pi/180.d0)/180.0d0
-!      IF(dlon > dist_zero) CYCLE
-!    END IF
     nn = nn+1
     tmpelm(nn) = tmpelm(n)
     tmplon(nn) = tmplon(n)
@@ -264,7 +262,6 @@ SUBROUTINE set_letkf_obs
     tmplev(nn) = tmplev(n)
     tmpdat(nn) = tmpdat(n)
     tmperr(nn) = tmperr(n)
-    !tmpk(nn) = tmpk(n)
     tmpdep(nn) = tmpdep(n)
     tmptyp(nn) = tmptyp(n)
     tmphdxf(nn,:) = tmphdxf(n,:)
@@ -272,16 +269,6 @@ SUBROUTINE set_letkf_obs
   END DO
   nobs = nn
   WRITE(ADM_LOG_FID,'(I10,A,I3.3)') nobs,' OBSERVATIONS TO BE ASSIMILATED IN MYRANK ',myrank
-
-!  if( myrank == 0 ) then
-!    open(100,file='monit_obs_prepbufr.txt')
-!    do n = 1, nobs
-!      write(100,'(9F10.2)') tmpelm(n), tmplon(n), tmplat(n), &
-!                            tmplev(n), tmpdat(n), tmperr(n), &
-!                            tmpdep(n), real(tmpqc(n)),  tmptyp(n)
-!    end do
-!    close(100)
-!  end if
 
 !
 ! SORT
@@ -311,10 +298,10 @@ SUBROUTINE set_letkf_obs
 !!$OMP PARALLEL PRIVATE(i,j,n,nn)
 !!$OMP DO SCHEDULE(DYNAMIC)
   DO j=1,nlat-1
-    DO n=1,nobs
-      IF(tmplat(n) < lat(j) .OR. lat(j+1) <= tmplat(n)) CYCLE
-      nj(j) = nj(j) + 1
-    END DO
+  DO n=1,nobs
+    IF(tmplat(n) < lat(j) .OR. lat(j+1) <= tmplat(n)) CYCLE
+    nj(j) = nj(j) + 1
+  END DO
   END DO
 !!$OMP END DO
 !!$OMP DO SCHEDULE(DYNAMIC)
@@ -349,25 +336,25 @@ SUBROUTINE set_letkf_obs
     END IF
     nn = 0
     DO i=1,nlon
-      DO n=njs(j)+1,njs(j)+nj(j)
-        IF(i < nlon) THEN
-          IF(tmp2lon(n) < lon(i) .OR. lon(i+1) <= tmp2lon(n)) CYCLE
-        ELSE
-          IF(tmp2lon(n) < lon(nlon) .OR. 360.0d0 <= tmp2lon(n)) CYCLE
-        END IF
-        nn = nn + 1
-        obselm(njs(j)+nn) = tmp2elm(n)
-        obslon(njs(j)+nn) = tmp2lon(n)
-        obslat(njs(j)+nn) = tmp2lat(n)
-        obslev(njs(j)+nn) = tmp2lev(n)
-        obsdat(njs(j)+nn) = tmp2dat(n)
-        obserr(njs(j)+nn) = tmp2err(n)
-!        obsk(njs(j)+nn) = tmp2k(n)
-        obsdep(njs(j)+nn) = tmp2dep(n)
-        obstyp(njs(j)+nn) = tmp2typ(n)
-        obshdxf(njs(j)+nn,:) = tmp2hdxf(n,:)
-      END DO
-      nobsgrd(i,j) = njs(j) + nn
+    DO n=njs(j)+1,njs(j)+nj(j)
+      IF(i < nlon) THEN
+        IF(tmp2lon(n) < lon(i) .OR. lon(i+1) <= tmp2lon(n)) CYCLE
+      ELSE
+        IF(tmp2lon(n) < lon(nlon) .OR. 360.0d0 <= tmp2lon(n)) CYCLE
+      END IF
+      nn = nn + 1
+      obselm(njs(j)+nn) = tmp2elm(n)
+      obslon(njs(j)+nn) = tmp2lon(n)
+      obslat(njs(j)+nn) = tmp2lat(n)
+      obslev(njs(j)+nn) = tmp2lev(n)
+      obsdat(njs(j)+nn) = tmp2dat(n)
+      obserr(njs(j)+nn) = tmp2err(n)
+!      obsk(njs(j)+nn) = tmp2k(n)
+      obsdep(njs(j)+nn) = tmp2dep(n)
+      obstyp(njs(j)+nn) = tmp2typ(n)
+      obshdxf(njs(j)+nn,:) = tmp2hdxf(n,:)
+    END DO
+    nobsgrd(i,j) = njs(j) + nn
     END DO
     IF(nn /= nj(j)) THEN
 !!$OMP CRITICAL
@@ -408,7 +395,7 @@ SUBROUTINE set_letkf_tvs
   IMPLICIT NONE
   INTEGER,PARAMETER :: err_unit=6
   INTEGER,PARAMETER :: verbosity_level=1
-  REAL(r_size),PARAMETER :: gross_error=5.0d0
+  REAL(r_size),PARAMETER :: gross_error=3.0d0
   CHARACTER(16) :: cfile='inst00000000.dat'
 
   REAL(r_size),ALLOCATABLE :: tmpelm(:,:,:)
@@ -429,6 +416,7 @@ SUBROUTINE set_letkf_tvs
   !REAL(r_size),ALLOCATABLE :: tmpwgt(:,:,:,:,:)
   REAL(r_size),ALLOCATABLE :: tmpdum(:,:,:,:,:)
   REAL(r_size),ALLOCATABLE :: tmppred(:,:,:,:,:)
+  REAL(r_size),ALLOCATABLE :: tmpqc_out(:,:,:,:)
   INTEGER,ALLOCATABLE :: tmpqc0(:,:,:,:,:)
   INTEGER,ALLOCATABLE :: tmpqc(:,:,:,:)
   INTEGER,ALLOCATABLE :: tmpfoot(:,:,:)
@@ -455,25 +443,28 @@ SUBROUTINE set_letkf_tvs
   REAL(r_size),ALLOCATABLE :: wk5d(:,:,:,:,:)
   REAL(r_size) :: wgtmax
 
-  INTEGER :: n,i,j,ierr,islot,nn,ic,nnn,itmp,im,l,ifoot
+  INTEGER :: n,i,j,ierr,islot,nn,ic,nnn,itmp,im,l,ifoot,im0
   INTEGER :: nj(0:nlat-1)
   INTEGER :: njs(1:nlat-1)
   INTEGER :: ntvsinput
+  
+  LOGICAL :: readobs_dummy = .true.
 
   ALLOCATE(ntvsprofslots(ninstrument,nslots))
   ALLOCATE(ntvsgrd(nlon,nlat,ninstrument,nslots))
   ntvsgrd = 0
   ntvsprofslots=0
-  ntvschan=0
+  !ntvschan=0
   WRITE(ADM_LOG_FID,'(A)') 'Hello from set_letkf_tvs'
   CALL set_instrument
 
   IF( myrank==0 ) THEN
     im = myrank + 1
+    IF(start_mem_zero) im=myrank
     DO islot=1,nslots
       WRITE(cfile(5:12),'(I2.2,I6.6)') islot, im
       write(ADM_LOG_FID,*) cfile
-      CALL get_ntvs_mpi(cfile)
+      CALL get_ntvs_mpi(cfile,dir=trim(obssate_basedir))
       ntvsprofslots(:,islot) = ntvsprof(:)
     END DO
   END IF
@@ -488,10 +479,8 @@ SUBROUTINE set_letkf_tvs
   DO n = 1,ninstrument
     ntvsinput=ntvsinput+sum(ntvsprofslots(n,:))*ntvsch(n)
   END DO
-  WRITE(ADM_LOG_FID,'(I10,A)') ntvsinput, ' TOTAL AMSU-A INPUT'
-
+  WRITE(ADM_LOG_FID,'(I10,A)') ntvsinput, ' TOTAL Satellite Radiances INPUT'
   WRITE(ADM_LOG_FID,*) "maxtvsprof", maxtvsprof
-  FLUSH(ADM_LOG_FID)
  
   IF(maxtvsprof /= 0) THEN
     ALLOCATE( tmpelm(   maxtvsprof,ninstrument,nslots) )
@@ -514,6 +503,7 @@ SUBROUTINE set_letkf_tvs
     ALLOCATE( tmppred( maxvbc,maxtvsch,maxtvsprof,ninstrument,nslots) )
     ALLOCATE( tmpqc0(    maxtvsch,maxtvsprof,ninstrument,nslots,nbv) )
     ALLOCATE( tmpqc(    maxtvsch,maxtvsprof,ninstrument,nslots) )
+    ALLOCATE( tmpqc_out(    maxtvsch,maxtvsprof,ninstrument,nslots) )
     ALLOCATE( tmpfoot(  maxtvsprof,ninstrument,nslots) )
     ALLOCATE( depstat(  maxtvsch,maxtvsfoot,ninstrument) )
     ALLOCATE( num_depstat(  maxtvsch,maxtvsfoot,ninstrument) )
@@ -524,15 +514,25 @@ SUBROUTINE set_letkf_tvs
     !tmpwgt =0.d0
     tmperr = 0.0d0
     tmpdat = 0.0d0
+    tmpdep = 0.0d0
     tmpdat_tmp = 0.0d0
 
-    timeslots1: DO islot=1,nslots
+    DO islot=1,nslots
       ntvsprof(:) = ntvsprofslots(:,islot)
       IF(MAXVAL(ntvsprof) /= 0) THEN
         l=0
         DO
-          im = myrank+1 + nprocs * l
-          IF(im > nbv) EXIT
+          IF(start_mem_zero) THEN
+            im  = myrank + nprocs * l
+            im0 = im + 1 
+            IF(im > nbv-1) EXIT
+            readobs_dummy = .false.
+          ELSE
+            im  = myrank+1 + nprocs * l
+            im0 = im
+            IF(im > nbv) EXIT
+            readobs_dummy = .false.
+          END IF
           WRITE(cfile(5:12),'(I2.2,I6.6)') islot, im
           WRITE(ADM_LOG_FID,*) cfile
           FLUSH(ADM_LOG_FID)
@@ -540,14 +540,14 @@ SUBROUTINE set_letkf_tvs
             &    tmpelm   (1,1,islot), tmplon   (1,1,islot), tmplat (1,1,islot), &
             &    tmpzenith(1,1,islot), tmpskin(1,1,islot), &
             &    tmpstmp  (1,1,islot), tmpclw (1,1,islot), &
-            &    tmplev (1,1,1,islot,im), tmpdat_tmp(1,1,1,islot,im), tmperr (1,1,1,islot),&
-            &    tmphdxf(1,1,1,islot,im), tmpqc0 (1,1,1,islot,im), tmpfoot(1,1,islot)) 
+            &    tmplev (1,1,1,islot,im0), tmpdat_tmp(1,1,1,islot,im0), tmperr (1,1,1,islot),&
+            &    tmphdxf(1,1,1,islot,im0), tmpqc0 (1,1,1,islot,im0), tmpfoot(1,1,islot), dir=trim(obssate_basedir)) 
           l=l+1
         END DO
       END IF
-    END DO timeslots1
+    END DO
 
-    IF(myrank+1 > nbv) THEN
+    IF(readobs_dummy) THEN
       nn=0
       DO islot=1,nslots
         ntvsprof(:) = ntvsprofslots(:,islot)
@@ -560,7 +560,7 @@ SUBROUTINE set_letkf_tvs
             &    tmpzenith(1,1,islot), tmpskin(1,1,islot), &
             &    tmpstmp  (1,1,islot), tmpclw (1,1,islot), &
             &    tmpdum (1,1,1,1,islot), tmpdat (1,1,1,islot), tmperr (1,1,1,islot),&
-            &    tmpdep(1,1,1,islot), tmpqc (1,1,1,islot), tmpfoot(1,1,islot))
+            &    tmpdep(1,1,1,islot), tmpqc (1,1,1,islot), tmpfoot(1,1,islot), dir=trim(obssate_basedir))
         END IF
       END DO
     END IF
@@ -598,13 +598,13 @@ SUBROUTINE set_letkf_tvs
     WHERE(tmpqc0<0) tmpqc0=0 !! Koji 2016.05.25
 
     DO islot=1,nslots
-      DO nn = 1,ninstrument
-        DO i = 1,ntvsprofslots(nn,islot)
-          DO ic= 1,ntvsch(nn)
-            tmpdat(ic,i,nn,islot)=sum(tmpdat_tmp(ic,i,nn,islot,1:nbv))
-          END DO
-        END DO
-      END DO
+    DO nn = 1,ninstrument
+    DO i = 1,ntvsprofslots(nn,islot)
+    DO ic= 1,ntvsch(nn)
+      tmpdat(ic,i,nn,islot)=sum(tmpdat_tmp(ic,i,nn,islot,1:nbv))
+    END DO
+    END DO
+    END DO
     END DO
 
     tmpdat(:,:,:,:)=tmpdat(:,:,:,:)/dble(nbv)
@@ -620,23 +620,23 @@ SUBROUTINE set_letkf_tvs
     END DO
 
     DO islot=1,nslots
-      DO nn = 1,ninstrument
-        DO i = 1,ntvsprofslots(nn,islot)
-          DO ic= 1,ntvsch(nn)
-            tmplev_tmp(ic,i,nn,islot)=sum(log(tmplev(ic,i,nn,islot,1:nbv)))
-          END DO
-        END DO
-      END DO
+    DO nn = 1,ninstrument
+    DO i = 1,ntvsprofslots(nn,islot)
+    DO ic= 1,ntvsch(nn)
+      tmplev_tmp(ic,i,nn,islot)=sum(log(tmplev(ic,i,nn,islot,1:nbv)))
+    END DO
+    END DO
+    END DO
     END DO
 
     DO islot=1,nslots
-      DO nn = 1,ninstrument
-        DO i = 1,ntvsprofslots(nn,islot)
-          DO ic= 1,ntvsch(nn)
-            tmplev(ic,i,nn,islot,1)=exp( tmplev_tmp(ic,i,nn,islot)/real(nbv) )
-          END DO
-        END DO
-      END DO
+    DO nn = 1,ninstrument
+    DO i = 1,ntvsprofslots(nn,islot)
+    DO ic= 1,ntvsch(nn)
+      tmplev(ic,i,nn,islot,1)=exp( tmplev_tmp(ic,i,nn,islot)/real(nbv) )
+    END DO
+    END DO
+    END DO
     END DO
 
     !islot=1
@@ -656,46 +656,42 @@ SUBROUTINE set_letkf_tvs
     ! Hdx & y-Hx
     !
     tmpqc = 0
-    timeslots2: DO islot=1,nslots
-      DO nn=1,ninstrument
-        DO n=1,ntvsprofslots(nn,islot)
-          DO ic=1,ntvsch(nn)
-            tmpqc(ic,n,nn,islot) = MINVAL(tmpqc0(ic,n,nn,islot,:))
-            !IF(tmpqc(ic,n,nn,islot) /= 1) CYCLE
-            IF(tmpqc(ic,n,nn,islot) /= 1) THEN
-              tmpdep(ic,n,nn,islot)=0
-            END IF
-            tmpdep(ic,n,nn,islot) = tmphdxf(ic,n,nn,islot,1)
-            DO i=2,nbv
-              tmpdep(ic,n,nn,islot) = tmpdep(ic,n,nn,islot) &
-                                  & + tmphdxf(ic,n,nn,islot,i)
-            END DO
-            tmpdep(ic,n,nn,islot) = tmpdep(ic,n,nn,islot) / REAL(nbv,r_size)
-            DO i=1,nbv
-              tmphdxf(ic,n,nn,islot,i) = tmphdxf(ic,n,nn,islot,i) &
-                                     & - tmpdep(ic,n,nn,islot) ! Hdx
-            END DO
-            tmpdep(ic,n,nn,islot) = tmpdat(ic,n,nn,islot) &
-                                & - tmpdep(ic,n,nn,islot) ! y-Hx
-            IF(ABS(tmpdep(ic,n,nn,islot)) > gross_error*tmperr(ic,n,nn,islot)) THEN ! Gross error check
-              tmpqc (ic,n,nn,islot) = 0
-              tmperr(ic,n,nn,islot) = 0.0d0
-            ELSE IF(tmpdat(ic,n,nn,islot)/=tmpdat(ic,n,nn,islot)) then
-              tmpqc (ic,n,nn,islot) = 0
-              !
-              ! numbering for the every channel unit instead of sensor unit
-              !
-              ntvs = ntvs + 1
-              !
-              ! weighting function standardization (summed at mpi_allreduce)
-              !
-              !wgtmax=MAXVAL(tmpwgt(:,ic,n,nn,islot))
-              !tmpwgt(:,ic,n,nn,islot) = tmpwgt(:,ic,n,nn,islot) / wgtmax
-            END IF
-          END DO
-        END DO
+    DO islot=1,nslots
+    DO nn=1,ninstrument
+    DO n=1,ntvsprofslots(nn,islot)
+    DO ic=1,ntvsch(nn)
+      tmpqc(ic,n,nn,islot) = SUM(tmpqc0(ic,n,nn,islot,:))
+      IF(REAL(tmpqc(ic,n,nn,islot)) < 0.6*REAL(nbv)) THEN
+        tmpqc_out(ic,n,nn,islot)=-REAL(tmpqc(ic,n,nn,islot))
+        tmpqc(ic,n,nn,islot)=0
+      ELSE
+        tmpqc_out(ic,n,nn,islot)=REAL(tmpqc(ic,n,nn,islot))
+        tmpqc(ic,n,nn,islot)=1
+      END IF 
+
+      tmpdep(ic,n,nn,islot) = tmphdxf(ic,n,nn,islot,1)
+      DO i=2,nbv
+        tmpdep(ic,n,nn,islot) = tmpdep(ic,n,nn,islot) &
+                            & + tmphdxf(ic,n,nn,islot,i)
       END DO
-    END DO timeslots2
+      tmpdep(ic,n,nn,islot) = tmpdep(ic,n,nn,islot) / REAL(nbv,r_size)
+      DO i=1,nbv
+        tmphdxf(ic,n,nn,islot,i) = tmphdxf(ic,n,nn,islot,i) &
+                               & - tmpdep(ic,n,nn,islot) ! Hdx
+      END DO
+      tmpdep(ic,n,nn,islot) = tmpdat(ic,n,nn,islot) &
+                          & - tmpdep(ic,n,nn,islot) ! y-Hx
+      IF(ABS(tmpdep(ic,n,nn,islot)) > gross_error*tmperr(ic,n,nn,islot)) THEN ! Gross error check
+        tmpqc_out(ic,n,nn,islot)=-2.0*real(nbv)
+        tmpqc (ic,n,nn,islot) = 0
+      ELSE IF(tmpdat(ic,n,nn,islot)/=tmpdat(ic,n,nn,islot)) then
+        tmpqc_out(ic,n,nn,islot)=-3.0*real(nbv)
+        tmpqc (ic,n,nn,islot) = 0
+      END IF
+    END DO
+    END DO
+    END DO
+    END DO
 
     if( myrank == 0 ) then
       depstat(:,:,:)=0.0d0
@@ -703,55 +699,61 @@ SUBROUTINE set_letkf_tvs
       open(100,file='monit_obs_amsua.txt')
       open(101,file='stat_obs_amsua.txt')
       do islot = 1, nslots
-        do nn = 1, ninstrument
-          do n = 1, ntvsprofslots(nn,islot)
-            do ic = 1, ntvsch(nn)
-              if(tmpqc(ic,n,nn,islot)==1) then
-                depstat(ic,tmpfoot(n,nn,islot),nn)=depstat(ic,tmpfoot(n,nn,islot),nn)+&
-                                                tmpdep(ic,n,nn,islot)
-                num_depstat(ic,tmpfoot(n,nn,islot),nn)=num_depstat(ic,tmpfoot(n,nn,islot),nn)+1
-                !write(ADM_LOG_FID,'(5i5,F9.3)') islot, nn, n, ic,
-                !tmpfoot(n,nn,islot), tmpdep(ic,n,nn,islot) 
-              end if
-            end do
-          end do
-        end do
+      do nn = 1, ninstrument
+      do n = 1, ntvsprofslots(nn,islot)
+      do ic = 1, ntvsch(nn)
+        if(tmpqc(ic,n,nn,islot)==1) then
+        !if(tvsch(ic,nn)>=5 .and. tmpqc(ic,n,nn,islot)==1) then
+          depstat(ic,tmpfoot(n,nn,islot),nn)=depstat(ic,tmpfoot(n,nn,islot),nn)+&
+                                          tmpdep(ic,n,nn,islot)
+          num_depstat(ic,tmpfoot(n,nn,islot),nn)=num_depstat(ic,tmpfoot(n,nn,islot),nn)+1
+          !write(ADM_LOG_FID,'(5i5,F9.3)') islot, nn, n, ic,
+          !tmpfoot(n,nn,islot), tmpdep(ic,n,nn,islot) 
+        !else if(tvsch(ic,nn)<=4) then
+        !  depstat(ic,tmpfoot(n,nn,islot),nn)=depstat(ic,tmpfoot(n,nn,islot),nn)+&
+        !                                  tmpdep(ic,n,nn,islot)
+        !  num_depstat(ic,tmpfoot(n,nn,islot),nn)=num_depstat(ic,tmpfoot(n,nn,islot),nn)+1
+        end if
+      end do
+      end do
+      end do
       end do
 
       do nn = 1, ninstrument
-        do ifoot = 1, maxtvsfoot
-          do ic = 1, ntvsch(nn)
-            if(num_depstat(ic,ifoot,nn)==0) then
-              depstat(ic,ifoot,nn)=0.0d0
-              !depstat(ic,ifoot,nn)=-999.d0
-            else
-              depstat(ic,ifoot,nn)=depstat(ic,ifoot,nn)/real(num_depstat(ic,ifoot,nn),kind=8)
-            end if
-          end do
-        end do
+      do ifoot = 1, maxtvsfoot
+      do ic = 1, ntvsch(nn)
+        if(num_depstat(ic,ifoot,nn)==0) then
+          depstat(ic,ifoot,nn)=0.0d0
+          !depstat(ic,ifoot,nn)=-999.d0
+        else
+          depstat(ic,ifoot,nn)=depstat(ic,ifoot,nn)/real(num_depstat(ic,ifoot,nn),kind=8)
+        end if
+      end do
+      end do
       end do
 
       do nn = 1, ninstrument
-        do ifoot = 1, maxtvsfoot
-          write(101,'(A,i5,15F9.3)') tvsname(nn), ifoot, &
-               (depstat(ic,ifoot,nn),ic=1,ntvsch(nn)), &
-               (real(num_depstat(ic,ifoot,nn)),ic=1,ntvsch(nn))
-        end do
+      do ifoot = 1, maxtvsfoot
+        write(101,'(A,i5,20F10.3)') tvsname(nn), ifoot, &
+             (depstat(ic,ifoot,nn),ic=1,ntvsch(nn)), &
+             (real(num_depstat(ic,ifoot,nn)),ic=1,ntvsch(nn))
+      end do
       end do
       close(101)
 
       do islot = 1, nslots
-        do nn = 1, ninstrument
-          do n = 1, ntvsprofslots(nn,islot)
-            write(100,'(A,24F9.3)') tvsname(nn), tmplon(n,nn,islot),          &
-                                    tmplat(n,nn,islot),                       &
-                                    real(tmpfoot(n,nn,islot)),                &
-                                    tmplev(1:ntvsch(nn),n,nn,islot,1)*0.01d0, &
-                                    tmpdat(1:ntvsch(nn),n,nn,islot),          &
-                                    tmpdep(1:ntvsch(nn),n,nn,islot),          &
-                                    real(tmpqc(1:ntvsch(nn),n,nn,islot))
-          end do
-        end do
+      do nn = 1, ninstrument
+      do n = 1, ntvsprofslots(nn,islot)
+        write(100,'(A,50F10.3)') tvsname(nn), tmplon(n,nn,islot),          &
+                                tmplat(n,nn,islot),                       &
+                                real(tmpfoot(n,nn,islot)),                &
+                                tmplev(1:ntvsch(nn),n,nn,islot,1)*0.01d0, &
+                                tmpdat(1:ntvsch(nn),n,nn,islot),          &
+                                tmpdep(1:ntvsch(nn),n,nn,islot),          &
+                                tmpqc_out(1:ntvsch(nn),n,nn,islot),       &
+                                tmpskin(n,nn,islot)
+      end do
+      end do
       end do
       close(100)
     end if
@@ -761,113 +763,53 @@ SUBROUTINE set_letkf_tvs
 ! temporal observation localization
 !
     DO islot=1,nslots
-      DO nn=1,ninstrument
-        DO n=1,ntvsprofslots(nn,islot)
-          DO ic=1,ntvsch(nn)
-            IF( tmpqc(ic,n,nn,islot) == 1 ) THEN
-              tmperr(ic,n,nn,islot) = tmperr(ic,n,nn,islot) &
-               & * exp(0.25d0 * (REAL(islot-nbslot,r_size) / sigma_obst)**2)
-            END IF
-          END DO
-        END DO
-      END DO
+    DO nn=1,ninstrument
+    DO n=1,ntvsprofslots(nn,islot)
+    DO ic=1,ntvsch(nn)
+      IF( tmpqc(ic,n,nn,islot) == 1 ) THEN
+        tmperr(ic,n,nn,islot) = tmperr(ic,n,nn,islot) &
+         & * exp(0.25d0 * (REAL(islot-nbslot,r_size) / sigma_obst)**2)
+      END IF
+    END DO
+    END DO
+    END DO
     END DO
 !
 ! SELECT OBS IN THE NODE
 !
     ntvs=0
     DO islot=1,nslots
-      DO nn=1,ninstrument
-        nnn = 0
-        DO n=1,ntvsprofslots(nn,islot)
-          IF( MAXVAL(tmpqc(:,n,nn,islot)) /= 1 ) CYCLE
-          nnn = nnn + 1
-          tmpelm    (nnn,nn,islot)  =tmpelm    (n,nn,islot)
-          tmplon    (nnn,nn,islot)  =tmplon    (n,nn,islot)
-          tmplat    (nnn,nn,islot)  =tmplat    (n,nn,islot)
-          tmplev  (:,nnn,nn,islot,1)=tmplev    (:,n,nn,islot,1)
-          tmpzenith (nnn,nn,islot)  =tmpzenith (n,nn,islot)
-          tmpskin   (nnn,nn,islot)  =tmpskin   (n,nn,islot)
-          tmpstmp   (nnn,nn,islot)  =tmpstmp   (n,nn,islot)
-          tmpclw    (nnn,nn,islot)  =tmpclw    (n,nn,islot)
-          tmpemis (:,nnn,nn,islot)  =tmpemis (:,n,nn,islot)
-          tmpdat  (:,nnn,nn,islot)  =tmpdat  (:,n,nn,islot)
-          tmperr  (:,nnn,nn,islot)  =tmperr  (:,n,nn,islot)
-          tmpdep  (:,nnn,nn,islot)  =tmpdep  (:,n,nn,islot)
-          tmpqc   (:,nnn,nn,islot)  =tmpqc   (:,n,nn,islot)
-          tmpfoot(nnn,nn,islot)   =tmpfoot(n,nn,islot)
-          !tmpwgt(:,:,nnn,nn,islot)  =tmpwgt(:,:,n,nn,islot)
-          DO i=1,nbv
-            tmphdxf (:,nnn,nn,islot,i)=tmphdxf (:,n,nn,islot,i)
-          END DO
-          ntvs=ntvs+SUM(tmpqc(:,nnn,nn,islot))
+    DO nn=1,ninstrument
+      nnn = 0
+      DO n=1,ntvsprofslots(nn,islot)
+        IF( MAXVAL(tmpqc(:,n,nn,islot)) /= 1 ) CYCLE
+        nnn = nnn + 1
+        tmpelm    (nnn,nn,islot)  =tmpelm    (n,nn,islot)
+        tmplon    (nnn,nn,islot)  =tmplon    (n,nn,islot)
+        tmplat    (nnn,nn,islot)  =tmplat    (n,nn,islot)
+        tmplev  (:,nnn,nn,islot,1)=tmplev    (:,n,nn,islot,1)
+        tmpzenith (nnn,nn,islot)  =tmpzenith (n,nn,islot)
+        tmpskin   (nnn,nn,islot)  =tmpskin   (n,nn,islot)
+        tmpstmp   (nnn,nn,islot)  =tmpstmp   (n,nn,islot)
+        tmpclw    (nnn,nn,islot)  =tmpclw    (n,nn,islot)
+        tmpemis (:,nnn,nn,islot)  =tmpemis (:,n,nn,islot)
+        tmpdat  (:,nnn,nn,islot)  =tmpdat  (:,n,nn,islot)
+        tmperr  (:,nnn,nn,islot)  =tmperr  (:,n,nn,islot)
+        tmpdep  (:,nnn,nn,islot)  =tmpdep  (:,n,nn,islot)
+        tmpqc   (:,nnn,nn,islot)  =tmpqc   (:,n,nn,islot)
+        tmpfoot(nnn,nn,islot)   =tmpfoot(n,nn,islot)
+        !tmpwgt(:,:,nnn,nn,islot)  =tmpwgt(:,:,n,nn,islot)
+        DO i=1,nbv
+          tmphdxf (:,nnn,nn,islot,i)=tmphdxf (:,n,nn,islot,i)
         END DO
-        ntvsprofslots(nn,islot) = nnn
+        ntvs=ntvs+SUM(tmpqc(:,nnn,nn,islot))
       END DO
+      ntvsprofslots(nn,islot) = nnn
+    END DO
     END DO
     maxtvsprof=MAXVAL(ntvsprofslots)
     WRITE(ADM_LOG_FID,'(I10,A,I3.3)') ntvs,' ATOVS CHANNELS TO BE ASSIMILATED IN MYRANK ',myrank
     FLUSH(ADM_LOG_FID)
-
-!    if( myrank == 0 ) then
-!      depstat(:,:,:)=0.0d0
-!      num_depstat(:,:,:)=0
-!      open(100,file='monit_obs_amsua.txt')
-!      open(101,file='stat_obs_amsua.txt')
-!      do islot = 1, nslots
-!        do nn = 1, ninstrument
-!          do n = 1, ntvsprofslots(nn,islot)
-!            do ic = 1, ntvsch(nn)
-!              if(tmpqc(ic,n,nn,islot)==1) then
-!                depstat(ic,tmpfoot(n,nn,islot),nn)=depstat(ic,tmpfoot(n,nn,islot),nn)+&
-!                                                tmpdep(ic,n,nn,islot) 
-!                num_depstat(ic,tmpfoot(n,nn,islot),nn)=num_depstat(ic,tmpfoot(n,nn,islot),nn)+1
-!                !write(ADM_LOG_FID,'(5i5,F9.3)') islot, nn, n, ic, tmpfoot(n,nn,islot), tmpdep(ic,n,nn,islot) 
-!              end if
-!            end do
-!          end do
-!        end do
-!      end do
-!  
-!      do nn = 1, ninstrument
-!        do ifoot = 1, maxtvsfoot
-!          do ic = 1, ntvsch(nn)
-!            if(num_depstat(ic,ifoot,nn)==0) then
-!              depstat(ic,ifoot,nn)=0.0d0
-!              !depstat(ic,ifoot,nn)=-999.d0
-!            else
-!              depstat(ic,ifoot,nn)=depstat(ic,ifoot,nn)/real(num_depstat(ic,ifoot,nn),kind=8)
-!            end if
-!          end do
-!        end do
-!      end do
-!  
-!      do nn = 1, ninstrument
-!        do ifoot = 1, maxtvsfoot
-!          write(101,'(A,i5,15F9.3)') tvsname(nn), ifoot, &
-!               (depstat(ic,ifoot,nn),ic=1,ntvsch(nn)), &
-!               (real(num_depstat(ic,ifoot,nn)),ic=1,ntvsch(nn))
-!        end do
-!      end do
-!      close(101)
-!  
-!      do islot = 1, nslots
-!        do nn = 1, ninstrument
-!          do n = 1, ntvsprofslots(nn,islot)
-!            write(100,'(A,24F9.3)') tvsname(nn), tmplon(n,nn,islot),          &
-!                                    tmplat(n,nn,islot),                       &
-!                                    real(tmpfoot(n,nn,islot)),                &
-!                                    tmplev(1:ntvsch(nn),n,nn,islot,1)*0.01d0, &
-!                                    tmpdat(1:ntvsch(nn),n,nn,islot),          &
-!                                    tmpdep(1:ntvsch(nn),n,nn,islot)
-!          end do
-!        end do
-!      end do
-!      close(100)
-!    end if
-!
-!  END IF
-
 !
 ! SORT
 !
@@ -914,11 +856,11 @@ SUBROUTINE set_letkf_tvs
       IF( ntvsprofslots(nn,islot) == 0) CYCLE
       nj = 0
       DO j=1,nlat-1
-        DO n=1,ntvsprofslots(nn,islot)
-          IF(tmplat(n,nn,islot) < lat(j) .OR. &
-           & tmplat(n,nn,islot) >=lat(j+1)) CYCLE
-          nj(j) = nj(j) + 1
-        END DO
+      DO n=1,ntvsprofslots(nn,islot)
+        IF(tmplat(n,nn,islot) < lat(j) .OR. &
+         & tmplat(n,nn,islot) >=lat(j+1)) CYCLE
+        nj(j) = nj(j) + 1
+      END DO
       END DO
       DO j=1,nlat-1
         njs(j) = SUM(nj(0:j-1))
@@ -958,33 +900,33 @@ SUBROUTINE set_letkf_tvs
         END IF
         nnn = 0
         DO i=1,nlon
-          DO n=njs(j)+1,njs(j)+nj(j)
-            IF(i < nlon) THEN
-              IF(tmp2lon(n,nn,islot) < lon(i) .OR. &
-               & tmp2lon(n,nn,islot) >=lon(i+1)) CYCLE
-            ELSE
-              IF(tmp2lon(n,nn,islot) < lon(nlon) .OR. &
-               & tmp2lon(n,nn,islot) >=360.0d0) CYCLE
-            END IF
-            nnn = nnn + 1
-            tvselm     (njs(j)+nnn,nn,islot) = tmp2elm     (n,nn,islot)
-            tvslon     (njs(j)+nnn,nn,islot) = tmp2lon     (n,nn,islot)
-            tvslat     (njs(j)+nnn,nn,islot) = tmp2lat     (n,nn,islot)
-            tvslev   (:,njs(j)+nnn,nn,islot) = tmp2lev   (:,n,nn,islot)
-            tvszenith  (njs(j)+nnn,nn,islot) = tmp2zenith  (n,nn,islot)
-            tvsskin    (njs(j)+nnn,nn,islot) = tmp2skin    (n,nn,islot)
-            tvsstmp    (njs(j)+nnn,nn,islot) = tmp2stmp    (n,nn,islot)
-            tvsclw     (njs(j)+nnn,nn,islot) = tmp2clw     (n,nn,islot)
-            tvsemis  (:,njs(j)+nnn,nn,islot) = tmp2emis  (:,n,nn,islot)
-            tvsdat   (:,njs(j)+nnn,nn,islot) = tmp2dat   (:,n,nn,islot)
-            tvserr   (:,njs(j)+nnn,nn,islot) = tmp2err   (:,n,nn,islot)
-            tvsdep   (:,njs(j)+nnn,nn,islot) = tmp2dep   (:,n,nn,islot)
-            tvshdxf(:,:,njs(j)+nnn,nn,islot) = tmp2hdxf(:,:,n,nn,islot)
-            !tvswgt (:,:,njs(j)+nnn,nn,islot) = tmp2wgt (:,:,n,nn,islot)
-            tvsqc    (:,njs(j)+nnn,nn,islot) = tmp2qc    (:,n,nn,islot)
-            tvsfoot  (njs(j)+nnn,nn,islot)   = tmp2foot  (n,nn,islot)
-          END DO
-          ntvsgrd(i,j,nn,islot) = njs(j) + nnn
+        DO n=njs(j)+1,njs(j)+nj(j)
+          IF(i < nlon) THEN
+            IF(tmp2lon(n,nn,islot) < lon(i) .OR. &
+             & tmp2lon(n,nn,islot) >=lon(i+1)) CYCLE
+          ELSE
+            IF(tmp2lon(n,nn,islot) < lon(nlon) .OR. &
+             & tmp2lon(n,nn,islot) >=360.0d0) CYCLE
+          END IF
+          nnn = nnn + 1
+          tvselm     (njs(j)+nnn,nn,islot) = tmp2elm     (n,nn,islot)
+          tvslon     (njs(j)+nnn,nn,islot) = tmp2lon     (n,nn,islot)
+          tvslat     (njs(j)+nnn,nn,islot) = tmp2lat     (n,nn,islot)
+          tvslev   (:,njs(j)+nnn,nn,islot) = tmp2lev   (:,n,nn,islot)
+          tvszenith  (njs(j)+nnn,nn,islot) = tmp2zenith  (n,nn,islot)
+          tvsskin    (njs(j)+nnn,nn,islot) = tmp2skin    (n,nn,islot)
+          tvsstmp    (njs(j)+nnn,nn,islot) = tmp2stmp    (n,nn,islot)
+          tvsclw     (njs(j)+nnn,nn,islot) = tmp2clw     (n,nn,islot)
+          tvsemis  (:,njs(j)+nnn,nn,islot) = tmp2emis  (:,n,nn,islot)
+          tvsdat   (:,njs(j)+nnn,nn,islot) = tmp2dat   (:,n,nn,islot)
+          tvserr   (:,njs(j)+nnn,nn,islot) = tmp2err   (:,n,nn,islot)
+          tvsdep   (:,njs(j)+nnn,nn,islot) = tmp2dep   (:,n,nn,islot)
+          tvshdxf(:,:,njs(j)+nnn,nn,islot) = tmp2hdxf(:,:,n,nn,islot)
+          !tvswgt (:,:,njs(j)+nnn,nn,islot) = tmp2wgt (:,:,n,nn,islot)
+          tvsqc    (:,njs(j)+nnn,nn,islot) = tmp2qc    (:,n,nn,islot)
+          tvsfoot  (njs(j)+nnn,nn,islot)   = tmp2foot  (n,nn,islot)
+        END DO
+        ntvsgrd(i,j,nn,islot) = njs(j) + nnn
         END DO
         IF(nnn /= nj(j)) THEN
           WRITE(ADM_LOG_FID,'(A,2I6)') 'ATOVS DATA SORT ERROR: ',nn,nj(j)
@@ -995,17 +937,6 @@ SUBROUTINE set_letkf_tvs
         END IF
       END DO
     END DO
-
-!    WRITE(ADM_LOG_FID,*) 'tvshdxf'
-!    DO islot = 1, nslots
-!      WRITE(ADM_LOG_FID,*) islot, maxval(tvshdxf(:,:,:,:,islot)), &
-!                                  minval(tvshdxf(:,:,:,:,islot))
-!    END DO
-!    WRITE(ADM_LOG_FID,*) 'tvsdep'
-!    DO islot = 1, nslots
-!      WRITE(ADM_LOG_FID,*) islot, maxval(tvsdep(:,:,:,islot)), &
-!                                  minval(tvsdep(:,:,:,islot))
-!    END DO
 !
     DEALLOCATE( tmp2elm   )
     DEALLOCATE( tmp2lon   )

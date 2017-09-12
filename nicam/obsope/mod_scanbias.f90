@@ -119,6 +119,7 @@ END SUBROUTINE vbc_scan_write
 SUBROUTINE tvs_ominusb_output(nn, imem, maxtvsch, nobs, ominusb, ifov, lsql, &
                               lwp, fname, tvsname, islot)
   USE mod_adm
+  USE mod_obsope_common, ONLY: flush_text
   IMPLICIT NONE
   INTEGER, INTENT(IN)        :: nn
   INTEGER, INTENT(IN)        :: imem
@@ -148,7 +149,7 @@ SUBROUTINE tvs_ominusb_output(nn, imem, maxtvsch, nobs, ominusb, ifov, lsql, &
   WRITE(ADM_LOG_FID,*) 'TRIM(cmem)'
   WRITE(ADM_LOG_FID,*) TRIM(cmem)
   WRITE(ADM_LOG_FID,*) 'nobs =', nobs 
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
   filename=TRIM(fname)//'_'//TRIM(tvsname)//TRIM(cslot)//TRIM(cmem)//'.txt'
   OPEN(201,FILE=TRIM(filename))
   DO i = 1, nobs

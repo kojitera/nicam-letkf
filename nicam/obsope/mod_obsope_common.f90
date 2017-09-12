@@ -85,6 +85,9 @@ MODULE mod_obsope_common
 
   CHARACTER(ADM_NSYS), SAVE :: sfc_type = 'RIGID'
 
+  LOGICAL, SAVE  :: start_mem_zero = .true.		! [add] Koji 2017.09.08  
+  LOGICAL, SAVE  :: flush_text     = .false.	! [add] Koji 2017.09.08  
+
 CONTAINS
 !------------------------------------------------------------------------------
 SUBROUTINE set_coef_interpolate(nsite, lon, lat,                     &
@@ -134,7 +137,7 @@ SUBROUTINE set_coef_interpolate(nsite, lon, lat,                     &
 
   WRITE(ADM_LOG_FID,*) 'nsite= ', nsite
   WRITE(ADM_LOG_FID,*) 'sum_max_num_latlon= ', sum_max_num_latlon
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
   IF(sum_max_num_latlon /= nsite) THEN
      WRITE(ADM_LOG_FID,*) 'ERROR!: max_num_latlon /= nsite'
      WRITE(ADM_LOG_FID,*) 'max_num_latlon:', sum_max_num_latlon
@@ -145,7 +148,7 @@ SUBROUTINE set_coef_interpolate(nsite, lon, lat,                     &
                 inprc, l_index, n1_index, n2_index, n3_index, w1, w2, w3 )
 
   WRITE(ADM_LOG_FID,*) 'END setup_ico2latlon_mapping'
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
   !WRITE(ADM_LOG_FID,*) 'l_index', l_index
   !WRITE(ADM_LOG_FID,*) 'w1', w1
   !WRITE(ADM_LOG_FID,*) 'w2', w2
@@ -157,13 +160,12 @@ SUBROUTINE set_coef_interpolate(nsite, lon, lat,                     &
   !  END IF
   !END DO
 
-
   DO i = 1, nsite
     IF(l_index(i) /= 0) THEN
       inprc(i) = .true.
     END IF
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   !IF( PRESENT(elev) ) THEN
   !  CALL getklev(nsite, elem, elev, l_index, n1_index, n2_index, n3_index, &
@@ -611,7 +613,7 @@ SUBROUTINE getklev(nsite, elem, elev,                            &
     IF(inprc(s)) THEN
     !WRITE(ADM_LOG_FID,'(i5,3f12.6,3i5)') l_index(s), w1(s), w2(s), w3(s), &
     !                                   n1_index(s), n2_index(s), n3_index(s)
-    !FLUSH(ADM_LOG_FID)
+    !IF(flush_text) FLUSH(ADM_LOG_FID)
       IF( elem(s) == id_ps_obs ) THEN
         alt = w1(s)*zs(n1_index(s),l_index(s)) &
             + w2(s)*zs(n2_index(s),l_index(s)) &

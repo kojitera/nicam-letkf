@@ -165,7 +165,7 @@ SUBROUTINE read_firstguess(imem)
             ' min=', MINVAL(icodata4_2d(:,:,:,nv)), &
             ' sum=',    SUM(icodata4_2d(:,:,:,nv))
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
 END SUBROUTINE read_firstguess
 !------------------------------------------------------------------------------

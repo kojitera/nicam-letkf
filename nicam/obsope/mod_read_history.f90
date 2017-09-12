@@ -44,7 +44,7 @@ SUBROUTINE read_history_init
   CALL fio_syscheck()
 
   WRITE(ADM_LOG_FID,*) ADM_gall,ADM_vlayer,MNG_prc_rnum(1),nv3d
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
   ALLOCATE( icodata4_3d(ADM_gall,ADM_vlayer,MNG_prc_rnum(1),nv3d) )
   ALLOCATE( icodata4_2d(ADM_gall,         1,MNG_prc_rnum(1),nv2d) )
 
@@ -103,7 +103,7 @@ SUBROUTINE read_history(imem)
     infile_header(1)=trim(indir(1))//'/history_gues_me'
   ELSE
     WRITE(ADM_LOG_FID,*) 'Invalid imem  ', imem
-    FLUSH(ADM_LOG_FID)
+    IF(flush_text) FLUSH(ADM_LOG_FID)
     CALL ADM_proc_stop
   END IF
   ! READ FIRST GUESS
@@ -183,7 +183,7 @@ SUBROUTINE read_history(imem)
             ' min=', MINVAL(icodata4_2d(:,:,:,nv)), &
             ' sum=',    SUM(icodata4_2d(:,:,:,nv))
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
 END SUBROUTINE read_history
 !------------------------------------------------------------------------------

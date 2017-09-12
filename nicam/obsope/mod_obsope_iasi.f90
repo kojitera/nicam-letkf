@@ -1,4 +1,5 @@
 MODULE mod_obsope_iasi
+  USE mod_obsope_common, ONLY: flush_text
   USE common_tvs_nicam, ONLY: &
     rttv_plat_metop,          &
     rttv_plat_metop2,         &
@@ -136,7 +137,7 @@ SUBROUTINE obsope_iasi_read
   IF(ierr /= 0) THEN
     WRITE(ADM_LOG_FID,*) 'Error in opening the file', trim(input_fname_iasi)
     WRITE(ADM_LOG_FID,*) 'Error code is ', ierr
-    FLUSH(ADM_LOG_FID)
+    IF(flush_text) FLUSH(ADM_LOG_FID)
     CALL ADM_proc_stop
   END IF
   READ(122) num_satellite_iasi
@@ -146,7 +147,7 @@ SUBROUTINE obsope_iasi_read
   READ(122) ntvs
   READ(122) nobs_iasi(:)
   WRITE(ADM_LOG_FID,*) 'nobs_iasi ', nobs_iasi
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   DO nn = 1, num_satellite_iasi
     ALLOCATE( iasi(nn)%datetime      ( 6, nobs_iasi(nn)) )
@@ -453,7 +454,7 @@ SUBROUTINE calc_radiance_iasi
                ri, rj, rk )
           CALL itpl_3d(nlon_co2, nlat_co2, nlev_co2, co2_org, ri, rj, rk, iasi(nn)%co2(iz, n) )
           WRITE(ADM_LOG_FID,*) ri, rj, rk, iasi(nn)%obsdata_3d(iz,n,3), iasi(nn)%co2(iz, n)
-          FLUSH(ADM_LOG_FID)
+          IF(flush_text) FLUSH(ADM_LOG_FID)
         END DO
       END DO
      
@@ -633,7 +634,7 @@ SUBROUTINE update_vbc_iasi(imem, nn)
   !DO ic = 1, ntvsch(nn)
   !  WRITE(ADM_LOG_FID,'(8f10.6)') (vbcf(i,ic,nn),i=1,maxvbc)
   !END DO
-  !FLUSH(ADM_LOG_FID)
+  !IF(flush_text) FLUSH(ADM_LOG_FID)
 
   CALL das_vbc( nobs_iasi(nn), maxvbc, ntvsch(nn),    &
                 tvsname(nn), tvsch(:,nn), ntvsch(nn), &
@@ -649,7 +650,7 @@ SUBROUTINE update_vbc_iasi(imem, nn)
   !DO ic = 1, ntvsch(nn)
   !  WRITE(ADM_LOG_FID,'(8f10.6)') (vbca(i,ic,nn),i=1,maxvbc)
   !END DO
-  !FLUSH(ADM_LOG_FID)
+  !IF(flush_text) FLUSH(ADM_LOG_FID)
 
   vbc_coef_out_fname=TRIM(vbc_coef_out_fname)//'_'//TRIM(tvsname(nn))//'_iasi'
   CALL vbc_write(trim(vbc_coef_out_fname), vbca(:,:,nn), maxvbc, maxtvsch, &

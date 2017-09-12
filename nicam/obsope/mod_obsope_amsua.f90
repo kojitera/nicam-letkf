@@ -1,4 +1,5 @@
 MODULE mod_obsope_amsua
+  USE mod_obsope_common, ONLY: flush_text
   USE common_tvs_nicam, ONLY: &
     rttv_plat_noaa,           &
     rttv_plat_metop,          &
@@ -134,7 +135,7 @@ SUBROUTINE obsope_amsua_read
   IF(ierr /= 0) THEN
     WRITE(ADM_LOG_FID,*) 'Error in opening the file', trim(input_fname_amsua)
     WRITE(ADM_LOG_FID,*) 'Error code is ', ierr
-    FLUSH(ADM_LOG_FID)
+    IF(flush_text) FLUSH(ADM_LOG_FID)
     CALL ADM_proc_stop
   END IF
   READ(122) num_satellite_amsua
@@ -146,47 +147,47 @@ SUBROUTINE obsope_amsua_read
   !WRITE(ADM_LOG_FID,*) nobs_amsua
 
   DO nn = 1, num_satellite_amsua
-    ALLOCATE( amsua(nn)%said          ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%lon           ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%lat           ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%elev          ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%odat          ( maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%odat_bc       ( maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%err           ( maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%saza          ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%soza          ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%soaz          ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%saaz          ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%fov           ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%lsql          ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%qc_tmp        ( maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%qc            ( maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%obsdata_3d_tmp( ADM_vlayer,nobs_amsua(nn),nv3d) )
-    ALLOCATE( amsua(nn)%obsdata_3d    ( ADM_vlayer,nobs_amsua(nn),nv3d) )
-    ALLOCATE( amsua(nn)%obsdata_2d_tmp( nobs_amsua(nn),nv2d) )
-    ALLOCATE( amsua(nn)%obsdata_2d    ( nobs_amsua(nn),nv2d) )
-    ALLOCATE( amsua(nn)%lwp           ( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%bt_tmp        ( maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%bt            ( maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%ominusb       ( maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%trans_tmp     ( ADM_vlayer, maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%trans         ( ADM_vlayer, maxtvsch,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%wk            ( 34,nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%inprc         ( nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%l_index       ( nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%n1_index      ( nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%n2_index      ( nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%n3_index      ( nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%w1            ( nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%w2            ( nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%w3            ( nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%vbcf_scan     ( maxfoot, maxtvsch ))
-    ALLOCATE( amsua(nn)%weight        ( ADM_vlayer, maxtvsch, nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%weight_maxlev ( maxtvsch, nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%vbc_pred      ( maxvbc, maxtvsch, nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%airmass_bias  ( maxvbc, maxtvsch, nobs_amsua(nn) ))
-    ALLOCATE( amsua(nn)%lsql_model_tmp( nobs_amsua(nn)) )
-    ALLOCATE( amsua(nn)%lsql_model    ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%said           ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%lon            ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%lat            ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%elev           ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%odat           ( maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%odat_bc        ( maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%err            ( maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%saza           ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%soza           ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%soaz           ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%saaz           ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%fov            ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%lsql           ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%qc_tmp         ( maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%qc             ( maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%obsdata_3d_tmp ( ADM_vlayer,nobs_amsua(nn),nv3d) )
+    ALLOCATE( amsua(nn)%obsdata_3d     ( ADM_vlayer,nobs_amsua(nn),nv3d) )
+    ALLOCATE( amsua(nn)%obsdata_2d_tmp ( nobs_amsua(nn),nv2d) )
+    ALLOCATE( amsua(nn)%obsdata_2d     ( nobs_amsua(nn),nv2d) )
+    ALLOCATE( amsua(nn)%lwp            ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%bt_tmp         ( maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%bt             ( maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%ominusb        ( maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%trans_tmp      ( ADM_vlayer, maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%trans          ( ADM_vlayer, maxtvsch,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%wk             ( 34,nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%inprc          ( nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%l_index        ( nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%n1_index       ( nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%n2_index       ( nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%n3_index       ( nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%w1             ( nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%w2             ( nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%w3             ( nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%vbcf_scan      ( maxfoot, maxtvsch ))
+    ALLOCATE( amsua(nn)%weight         ( ADM_vlayer, maxtvsch, nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%weight_maxlev  ( maxtvsch, nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%vbc_pred       ( maxvbc, maxtvsch, nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%airmass_bias   ( maxvbc, maxtvsch, nobs_amsua(nn) ))
+    ALLOCATE( amsua(nn)%lsql_model_tmp ( nobs_amsua(nn)) )
+    ALLOCATE( amsua(nn)%lsql_model     ( nobs_amsua(nn)) )
   END DO
 
   DO nn = 1, num_satellite_amsua
@@ -209,13 +210,7 @@ SUBROUTINE obsope_amsua_read
     amsua(nn)%soaz(n)   = amsua(nn)%wk(17,n)
     amsua(nn)%saaz(n)   = amsua(nn)%wk(18,n)
     amsua(nn)%odat(:,n) = amsua(nn)%wk(19:33,n)
-    !WRITE(ADM_LOG_FID,'(6f12.5)') amsua(nn)%lon(n), amsua(nn)%lat(n),   &
-    !                              amsua(nn)%saza(n), amsua(nn)%saaz(n), &
-    !                              amsua(nn)%soza(n), amsua(nn)%soaz(n) 
   END DO
-  !WRITE(ADM_LOG_FID,*) minval(amsua(nn)%lat(:)), maxval(amsua(nn)%lat(:))
-  !WRITE(ADM_LOG_FID,*) minval(amsua(nn)%lon(:)), maxval(amsua(nn)%lon(:))
-  !WRITE(ADM_LOG_FID,*) minval(amsua(nn)%saza(:)), maxval(amsua(nn)%saza(:))
   END DO
 
   DO nn = 1, num_satellite_amsua
@@ -379,26 +374,6 @@ SUBROUTINE interpolate_amsua(nn)
                       nobs_amsua(nn),                                 &
                       MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-  !DO i = 1, nobs_amsua(nn)
-  !  WRITE(ADM_LOG_FID,'(i7,3f12.5)') i, (maxval(amsua(nn)%obsdata_3d(:,i,nv)),nv=1,3)
-  !END DO
-
-  !DO i = 1, nobs_amsua(nn)
-  !  WRITE(ADM_LOG_FID,'(i7,7f12.5)') i, (amsua(nn)%obsdata_2d(i,nv),nv=1,7)
-  !END DO
-
-  !DEALLOCATE( amsua(nn)%obsdata_3d_tmp )
-  !DEALLOCATE( amsua(nn)%obsdata_2d_tmp )
-
-  !DEALLOCATE( inprc )
-  !DEALLOCATE( l_index )
-  !DEALLOCATE( n1_index )
-  !DEALLOCATE( n2_index )
-  !DEALLOCATE( n3_index )
-  !DEALLOCATE( w1 )
-  !DEALLOCATE( w2 )
-  !DEALLOCATE( w3 )
-
 END SUBROUTINE interpolate_amsua
 !------------------------------------------------------------------------------
 SUBROUTINE calc_radiance_amsua
@@ -466,7 +441,7 @@ SUBROUTINE calc_radiance_amsua
       !WRITE(ADM_LOG_FID,*) amsua(nn)%elev(sobs)
       !WRITE(ADM_LOG_FID,*) amsua(nn)%lon(sobs)
       !WRITE(ADM_LOG_FID,*) amsua(nn)%lat(sobs)
-      !FLUSH(ADM_LOG_FID)
+      !IF(flush_text) FLUSH(ADM_LOG_FID)
      
       CALL amsua_fwd( ADM_vlayer, eobs-sobs+1, rttovcoef_fname(nn),            &
           DBLE(amsua(nn)%obsdata_3d(ADM_vlayer:1:-1, sobs:eobs, 3)),     &
@@ -655,7 +630,7 @@ SUBROUTINE update_vbc_amsua(imem, nn)
   DO ic = 1, ntvsch(nn)
     WRITE(ADM_LOG_FID,'(8f10.6)') (vbcf(i,ic,nn),i=1,maxvbc)
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   CALL das_vbc( nobs_amsua(nn), maxvbc, ntvsch(nn),             &
                 tvsname(nn), tvsch(:,nn), ntvsch(nn),           &
@@ -671,7 +646,7 @@ SUBROUTINE update_vbc_amsua(imem, nn)
   DO ic = 1, ntvsch(nn)
     WRITE(ADM_LOG_FID,'(8f10.6)') (vbca(i,ic,nn),i=1,maxvbc)
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   vbc_coef_out_fname=TRIM(vbc_coef_out_fname)//'_'//TRIM(tvsname(nn))//'_amsua'
   CALL vbc_write(trim(vbc_coef_out_fname), vbca(:,:,nn), maxvbc, maxtvsch, &
@@ -778,11 +753,11 @@ SUBROUTINE output_amsua(imem, nn)
 
   WHERE( amsua(nn)%lon(:) < 0.0 ) amsua(nn)%lon(:) = amsua(nn)%lon(:) + 360.0
 
-  WRITE(cimem(1:6),'(I6.6)') imem + 1
+  WRITE(cimem(1:6),'(I6.6)') imem
   fname=TRIM(output_dirname_amsua)//'/'//TRIM(tvsname(nn))//&
         TRIM(output_basename_amsua)//TRIM(cimem)//'.dat'
   WRITE(ADM_LOG_FID,*) TRIM(fname)
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
   OPEN(1, FILE=TRIM(fname),FORM='unformatted',ACCESS='sequential')
   DO i = 1, nobs_amsua(nn)
     WRITE(1) REAL(id_bt_obs),        REAL(amsua(nn)%lsql(i)),         &

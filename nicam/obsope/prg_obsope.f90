@@ -31,11 +31,23 @@ PROGRAM obsope
   CALL ADM_setup('obsope.cnf')
   CALL FIO_setup
   CALL COMM_setup
+  WRITE(ADM_LOG_FID,*) 'comm'
+  FLUSH(ADM_LOG_FID)
   CALL CNST_setup
+  WRITE(ADM_LOG_FID,*) 'cnst'
+  FLUSH(ADM_LOG_FID)
   CALL GRD_setup
+  WRITE(ADM_LOG_FID,*) 'grd'
+  FLUSH(ADM_LOG_FID)
   CALL GMTR_setup
+  WRITE(ADM_LOG_FID,*) 'gmtr'
+  FLUSH(ADM_LOG_FID)
   CALL OPRT_setup
+  WRITE(ADM_LOG_FID,*) 'oprt'
+  FLUSH(ADM_LOG_FID)
   CALL VMTR_setup
+  WRITE(ADM_LOG_FID,*) 'vmtr'
+  FLUSH(ADM_LOG_FID)
 
   time(:)=0.0d0
   tmp_time(1)=MPI_WTIME()

@@ -527,30 +527,33 @@ SUBROUTINE read_ens_mpi(file,member,v3d,v2d)
   CHARACTER(6) :: cmem
   REAL(r_size) :: tmp_time(3)
   INTEGER :: mstart, mend
+  INTEGER :: member_tmp
+  
+  IF(start_mem_zero) THEN
+    member_tmp=member-1
+  ELSE
+    member_tmp=member
+  END IF
 
   ll = CEILING(REAL(member)/REAL(nprocs))
   DO l=1,ll
     tmp_time(1)=MPI_WTIME()
-    !im = myrank+1 + (l-1)*nprocs
-    im = myrank + (l-1)*nprocs ! 2017.05.07 Koji
-    IF(im <= member-1) THEN
+    IF(start_mem_zero) THEN
+      im = myrank + (l-1)*nprocs ! 2017.05.07 Koji
+    ELSE
+      im = myrank + (l-1)*nprocs + 1
+    END IF
+    IF(im <= member_tmp) THEN
       WRITE(cmem,'(I6.6)') im
-      filename1=trim(gues_basedir)//'/'//CDATE//'/mem'//cmem//'/restart_da'  ! KK
-      filename2=trim(gues_basedir)//'/'//CDATE//'/mem'//cmem//'/history'
+      filename1=trim(gues_basedir)//'/'//CDATE//'/'//TRIM(dir_prefix)//cmem//'/'//TRIM(restart_basename)
+      filename2=trim(gues_basedir)//'/'//CDATE//'/'//TRIM(dir_prefix)//cmem//'/'//TRIM(history_basename)
       WRITE(ADM_LOG_FID,'(A,I3.3,2A)') &
             'MYRANK ',myrank,' is reading a file ',trim(filename1)
       CALL read_icogrd(filename1,filename2,v3dg,v2dg)
     END IF
     tmp_time(2)=MPI_WTIME()
-
     time_IO(1)=time_IO(1)+tmp_time(2)-tmp_time(1)
 
-!   DO n=0,nprocs-1                                                          ! KK
-!     im = n+1 + (l-1)*nprocs                                                ! KK
-!     IF(im <= member) THEN                                                  ! KK
-!       CALL scatter_grd_mpi_alltoall(n,v3dg,v2dg,v3d(:,:,im,:),v2d(:,im,:)) ! KK
-!     END IF                                                                 ! KK
-!   END DO                                                                   ! KK
     mstart = 1 + (l-1)*nprocs                                                ! KK (add 20141017)
     mend   = MIN(l*nprocs, member)                                           ! KK (add 20141017)
     CALL scatter_grd_mpi_alltoall(member,mstart,mend,v3dg,v2dg,v3d,v2d)      ! KK (add 20141017)
@@ -575,7 +578,15 @@ SUBROUTINE write_ens_mpi(file,member,v3d,v2d)
   CHARACTER(256) :: filename2=''
   CHARACTER(6) :: cmem
   REAL(r_size) :: tmp_time(3)
-
+  INTEGER :: mstart, mend
+  INTEGER :: member_tmp
+  
+  IF(start_mem_zero) THEN
+    member_tmp=member-1
+  ELSE
+    member_tmp=member
+  END IF
+  
   ll = CEILING(REAL(member)/REAL(nprocs))
   DO l=1,ll
     tmp_time(1)=MPI_WTIME()
@@ -590,12 +601,14 @@ SUBROUTINE write_ens_mpi(file,member,v3d,v2d)
     CALL gather_grd_mpi_alltoall(member,mstart,mend,v3d,v2d,v3dg,v2dg) ! KK (add 20141019)
     tmp_time(2)=MPI_WTIME()
     time_IO(3)=time_IO(3)+tmp_time(2)-tmp_time(1)
-
-    !im = myrank+1 + (l-1)*nprocs
-    im = myrank + (l-1)*nprocs ! 2017.05.07 Koji
-    IF(im <= member-1) THEN
+    IF(start_mem_zero) THEN
+      im = myrank + (l-1)*nprocs ! 2017.05.07 Koji
+    ELSE
+      im = myrank + (l-1)*nprocs + 1
+    END IF
+    IF(im <= member_tmp) THEN
       WRITE(cmem,'(I6.6)') im
-      filename1=trim(anal_basedir)//'/'//CDATE//'/mem'//cmem//'/restart_da' 
+      filename1=trim(anal_basedir)//'/'//CDATE//'/'//TRIM(dir_prefix)//cmem//'/'//TRIM(restart_basename)
       CALL write_icogrd(filename1,filename2,v3dg,v2dg)
     END IF
     tmp_time(3)=MPI_WTIME()

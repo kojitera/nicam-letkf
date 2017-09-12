@@ -61,9 +61,6 @@ program icolatlon
   ALLOCATE( ico_lon(ADM_gall, ADM_rgn_nmax) )
   ALLOCATE( ico_lat(ADM_gall, ADM_rgn_nmax) )
 
-  write(ADM_LOG_FID,*) 'ADM_prc_run_all ', ADM_prc_run_all
-  write(ADM_LOG_FID,*) 'ADM_myprc_is_run', ADM_myprc_is_run
-
   nij0=ADM_gall*ADM_rgn_nmax
   ngpv=nij0*ADM_kall
 
@@ -76,7 +73,6 @@ program icolatlon
     end do
   end do
   ico_lat_tmp(:,:)=ico_lat_tmp(:,:)/pi*180.0
-  !ico_lon_tmp(:,:)=ico_lon_tmp(:,:)/pi*180.0+180.0d0
   ico_lon_tmp(:,:)=ico_lon_tmp(:,:)/pi*180.0  ! Fixed [2015.01.21] Koji
 
   call MPI_GATHER(ico_lon_tmp, ADM_gall*ADM_lall, MPI_REAL8, &

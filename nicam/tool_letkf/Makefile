@@ -1,7 +1,7 @@
 include ../../Mkinclude
 
-MODS = prg_makeproduct_forecast.o prg_spread_uv.o prg_makemean_landocn.o prg_makeproduct.o prg_estimateR.o prg_estimateR_mpi.o prg_estimateR_interchannel.o prg_icolatlon.o fnc_transgauss.o prg_rain2trans.o prg_trans2rain.o prg_dstat.o
-PRJS = makeproduct_forecast spread_uv makemean_landocn makeproduct estimateR estimateR_mpi estimateR_interchannel icolatlon cdfmake rain2trans trans2rain dstat
+MODS = prg_makeproduct_forecast.o prg_spread_uv.o prg_makemean_landocn.o prg_makeproduct.o prg_estimateR.o prg_estimateR_mpi.o prg_estimateR_interchannel.o prg_icolatlon.o
+PRJS = makeproduct_forecast spread_uv makemean_landocn makeproduct estimateR estimateR_mpi estimateR_interchannel icolatlon
 
 all: allmod allprg
 allmod: $(MODS)

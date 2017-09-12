@@ -1,4 +1,5 @@
 MODULE mod_obsope_atms
+  USE mod_obsope_common, ONLY: flush_text
   USE common_tvs_nicam, ONLY: &
     rttv_plat_jpss,           &
     rttv_inst_atms,           &
@@ -134,7 +135,7 @@ SUBROUTINE obsope_atms_read
   IF(ierr /= 0) THEN
     WRITE(ADM_LOG_FID,*) 'Error in opening the file', trim(input_fname_atms)
     WRITE(ADM_LOG_FID,*) 'Error code is ', ierr
-    FLUSH(ADM_LOG_FID)
+    IF(flush_text) FLUSH(ADM_LOG_FID)
     CALL ADM_proc_stop
   END IF
   READ(122) num_satellite_atms
@@ -409,7 +410,7 @@ SUBROUTINE interpolate_atms(nn)
   DO i = 1, nobs_atms(nn)
     WRITE(ADM_LOG_FID,'(i7,7f12.5)') i, (atms(nn)%obsdata_2d(i,nv),nv=1,7)
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   !DEALLOCATE( atms(nn)%obsdata_3d_tmp )
   !DEALLOCATE( atms(nn)%obsdata_2d_tmp )
@@ -449,7 +450,7 @@ SUBROUTINE calc_radiance_atms
                                   atms(nn)%soza(n), atms(nn)%soaz(n)
   END DO
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   DO nn = 1, num_satellite_atms
     atms(nn)%bt_tmp(:,:)=0.0
@@ -465,7 +466,7 @@ SUBROUTINE calc_radiance_atms
   WRITE(ADM_LOG_FID,*) 'prc_per_inst =', prc_per_inst
   WRITE(ADM_LOG_FID,*) 'nn =', nn
   WRITE(ADM_LOG_FID,*) 'pe_in_satellite =', pe_in_satellite
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   IF( nobs_atms(nn) /= 0 ) THEN
     obsint=nobs_atms(nn)/prc_per_inst
@@ -503,7 +504,7 @@ SUBROUTINE calc_radiance_atms
         WRITE(ADM_LOG_FID,*) 'lat = ', atms(nn)%lat(n)
         WRITE(ADM_LOG_FID,*) 'lsql= ', atms(nn)%lsql(n)
       END DO
-      FLUSH(ADM_LOG_FID)
+      IF(flush_text) FLUSH(ADM_LOG_FID)
      
       CALL atms_fwd( ADM_vlayer, eobs-sobs+1, rttovcoef_fname(nn),              &
           DBLE(atms(nn)%obsdata_3d(ADM_vlayer:1:-1, sobs:eobs, 3)),             &
@@ -526,7 +527,7 @@ SUBROUTINE calc_radiance_atms
           atms(nn)%trans_tmp( :,:,sobs:eobs ) )
 
       WRITE(ADM_LOG_FID,*) 'End RTTOV for ATMS'
-      FLUSH(ADM_LOG_FID)
+      IF(flush_text) FLUSH(ADM_LOG_FID)
 
     END IF
   END IF
@@ -540,7 +541,7 @@ SUBROUTINE calc_radiance_atms
                        MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
   END DO 
   WRITE(ADM_LOG_FID,*) 'End ALLREDUCE of BT for ATMS'
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   DO nn = 1, num_satellite_atms
   DO n = 1, nobs_atms(nn)
@@ -620,7 +621,7 @@ SUBROUTINE calc_vbc_atms(nn)
       atms(nn)%airmass_bias(:,ic,n)=atms(nn)%vbc_pred(:,ic,n)*vbcf(:,ic,nn)
       WRITE(ADM_LOG_FID,'(2i5,8f10.5)') nn, ic, atms(nn)%airmass_bias(:,ic,n)
     END DO
-    FLUSH(ADM_LOG_FID)
+    IF(flush_text) FLUSH(ADM_LOG_FID)
 
   END DO
 
@@ -703,7 +704,7 @@ SUBROUTINE update_vbc_atms(imem, nn)
   DO ic = 1, ntvsch(nn)
     WRITE(ADM_LOG_FID,'(8f10.6)') (vbcf(i,ic,nn),i=1,maxvbc)
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   CALL das_vbc( nobs_atms(nn), maxvbc, ntvsch(nn),             &
                 tvsname(nn), tvsch(:,nn), ntvsch(nn),           &
@@ -719,7 +720,7 @@ SUBROUTINE update_vbc_atms(imem, nn)
   DO ic = 1, ntvsch(nn)
     WRITE(ADM_LOG_FID,'(8f10.6)') (vbca(i,ic,nn),i=1,maxvbc)
   END DO
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
 
   vbc_coef_out_fname=TRIM(vbc_coef_out_fname)//'_'//TRIM(tvsname(nn))//'_atms'
   CALL vbc_write(trim(vbc_coef_out_fname), vbca(:,:,nn), maxvbc, maxtvsch, &
@@ -810,7 +811,7 @@ SUBROUTINE update_scanbias_atms(nn)
   !WRITE(ADM_LOG_FID,*) tvsinst(:,nn)
   !WRITE(ADM_LOG_FID,*) tvsch(:,nn)
   !WRITE(ADM_LOG_FID,*) ntvsch(nn)
-  !FLUSH(ADM_LOG_FID)
+  !IF(flush_text) FLUSH(ADM_LOG_FID)
   CALL vbc_scan_write(trim(scanbias_est_ofname), vbcf_scan(:,1:ntvsch(nn),nn), &
                  nfootp(nn), ntvsch(nn), &
                  tvsinst(:,nn), tvsch(1:ntvsch(nn),nn), ntvsch(nn))
@@ -832,11 +833,11 @@ SUBROUTINE output_atms(imem, nn)
 
   WHERE( atms(nn)%lon(:) < 0.0 ) atms(nn)%lon(:) = atms(nn)%lon(:) + 360.0
 
-  WRITE(cimem(1:6),'(I6.6)') imem + 1
+  WRITE(cimem(1:6),'(I6.6)') imem
   fname=TRIM(output_dirname_atms)//'/'//TRIM(tvsname(nn))//&
         TRIM(output_basename_atms)//TRIM(cimem)//'.dat'
   WRITE(ADM_LOG_FID,*) TRIM(fname)
-  FLUSH(ADM_LOG_FID)
+  IF(flush_text) FLUSH(ADM_LOG_FID)
   OPEN(1, FILE=TRIM(fname),FORM='unformatted',ACCESS='sequential')
   DO i = 1, nobs_atms(nn)
     WRITE(1) REAL(id_bt_obs),       REAL(atms(nn)%lsql(i)),    &

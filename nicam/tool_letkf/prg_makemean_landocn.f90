@@ -14,7 +14,6 @@ program main
        ADM_proc_finish,        &
        ADM_prc_me,             &
        ADM_prc_run_master,     &
-       ADM_prc_run_all,        &
        ADM_prc_tab,            &
        ADM_kall,               &
        ADM_gall,               &

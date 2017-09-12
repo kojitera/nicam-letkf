@@ -49,7 +49,9 @@ SUBROUTINE obsope_init
     assimilate_iasi,          &
     assimilate_cris,          &
     assimilate_airs,          &
-    co2_fname, co2_step
+    co2_fname, co2_step,      &
+    start_mem_zero,           &  ! [add] Koji 2017.09.08
+    flush_text
 
   OPEN(101,file='obsope.cnf')
   READ(101,NML=obsope_param) 
@@ -118,7 +120,6 @@ SUBROUTINE obsope_init
     CALL set_coef_interpolate(nobs_prepbufr, lon, lat, prep_inprc,    &
            prep_l_index, prep_n1_index, prep_n2_index, prep_n3_index, &
            prep_w1, prep_w2, prep_w3)
-           !elem=prep_elem, elev=lev, klev=prep_klev, kfact=prep_kfact)
     DEALLOCATE( lon )
     DEALLOCATE( lat )
     DEALLOCATE( lev )
@@ -285,19 +286,19 @@ SUBROUTINE obsope_main(imem)
                                      DBLE(atms(nn)%weight(:,:,:)),     &
                                      atms(nn)%weight_maxlev(:,:)    )
         WRITE(ADM_LOG_FID,*) 'End calc_weighting_function'
-        FLUSH(ADM_LOG_FID)
+        IF(flush_text) FLUSH(ADM_LOG_FID)
 
         CALL calc_vbc_atms(nn)
         WRITE(ADM_LOG_FID,*) 'End calc_vbc_atms'
-        FLUSH(ADM_LOG_FID)
+        IF(flush_text) FLUSH(ADM_LOG_FID)
 
         CALL quality_control_atms(nn)
         WRITE(ADM_LOG_FID,*) 'End quality_control_atms'
-        FLUSH(ADM_LOG_FID)
+        IF(flush_text) FLUSH(ADM_LOG_FID)
 
         CALL output_atms(imem, nn)
         WRITE(ADM_LOG_FID,*) 'End output_atms'
-        FLUSH(ADM_LOG_FID)
+        IF(flush_text) FLUSH(ADM_LOG_FID)
 
 
       END IF
