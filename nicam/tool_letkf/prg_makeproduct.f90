@@ -62,6 +62,7 @@ PROGRAM main
   INTEGER                   :: g, l, rgnid, n, nv, ip
   INTEGER                   :: ierr
   INTEGER                   :: i, j
+  INTEGER                   :: ix, iy
   CHARACTER(ADM_MAXFNAME)   :: basename
   CHARACTER(ADM_MAXFNAME)   :: fname
   CHARACTER(ADM_MAXFNAME)   :: mean_restart_basename
@@ -97,6 +98,8 @@ PROGRAM main
   
   INTEGER                   :: np
   INTEGER,PARAMETER         :: nv3d=8
+  !  1: pres -> z, 2: temperature, 3: u-wind, 4: v-wind
+  !  5: w-wind,    6: qv,          7: qc
   INTEGER,PARAMETER         :: nv2d=1
   CHARACTER(LEN=FIO_HSHORT) :: varname3d(nv3d)
   CHARACTER(LEN=FIO_HSHORT) :: varname2d(nv2d)
@@ -123,6 +126,8 @@ PROGRAM main
   REAL(8),ALLOCATABLE       :: var_2d(:,:,:,:,:)
   REAL(8),ALLOCATABLE       :: var_out_swap(:,:)
   CHARACTER(5)              :: c5
+
+  REAL(8),ALLOCATABLE       :: var_3d_rh(:,:,:)
            
   LOGICAL                   :: onefile=.false.
   CHARACTER(256)            :: output_dir
@@ -151,6 +156,7 @@ PROGRAM main
   CALL ADM_proc_init(ADM_MULTI_PRC)
   CALL ADM_setup('nhm_driver.cnf')
   CALL FIO_setup ! [add] H.Yashiro 20110826
+  CALL CNST_setup
   CALL COMM_setup
   CALL FIO_setup
   CALL GRD_setup
@@ -327,6 +333,7 @@ PROGRAM main
   ALLOCATE(var_3d(imax,jmax,np,nv3d,2))
   ALLOCATE(var_2d(imax,jmax,1,nv2d,2))
   ALLOCATE(var_out_swap(imax,jmax))
+  ALLOCATE(var_3d_rh(imax,jmax,np))
 
   DO l=1, ADM_lall
      OPEN(20,file=fin_llmap,FORM='unformatted',STATUS='old')
@@ -407,29 +414,71 @@ PROGRAM main
   CALL MPI_ALLREDUCE(var_out_2d, var_2d, imax*jmax*nv2d*2, MPI_REAL8, MPI_SUM,&
                      MPI_COMM_WORLD, ierr)
 
+  !--- Compute Relative humidity
+  DO ip = 1, np
+  DO iy = 1, jmax
+  DO ix = 1, imax
+    IF(var_3d(ix,iy,ip,2,1)==CNST_UNDEF .AND. var_3d(ix,iy,ip,6,1)==CNST_UNDEF) THEN
+      var_3d_rh(ix,iy,ip)=CNST_UNDEF
+    ELSE
+      var_3d_rh(ix,iy,ip)=calc_rh(var_3d(ix,iy,ip,2,1), plevel(ip)*100.0, var_3d(ix,iy,ip,6,1) )
+      WRITE(ADM_LOG_FID,'(4F12.5)') var_3d(ix,iy,ip,2,1), plevel(ip)*100.0, &
+                                    var_3d(ix,iy,ip,6,1), var_3d_rh(ix,iy,ip)
+    END IF
+  END DO
+  END DO
+  END DO
+
   !--- OUTPUT
   IF(ADM_prc_me==1) THEN
     IF(onefile) THEN
       fname=TRIM(output_dir)//'/'//TRIM(cdate)//'.dat'
       OPEN(1,file=TRIM(fname),FORM='unformatted',ACCESS='direct',RECL=4*imax*jmax)
       n=1
-      DO i = 1, 2
-        DO nv = 1, nv3d-1
-          DO ip = 1, np
-            WRITE(1,REC=n) SNGL(var_3d(:,:,ip,nv,i))
-            WRITE(ADM_LOG_FID,*) ip, MINVAL(var_3d(:,:,ip,nv,i)), MAXVAL(var_3d(:,:,ip,nv,i))
-            n=n+1
-          END DO
-          WRITE(ADM_LOG_FID,*) TRIM(varname3d(nv)), MINVAL(var_3d(:,:,:,nv,i)), MAXVAL(var_3d(:,:,:,nv,i))
-        END DO
-
-        DO nv = 1, nv2d
-          WRITE(1,REC=n) SNGL(var_2d(:,:,1,nv,i))
-          WRITE(ADM_LOG_FID,*) TRIM(varname2d(nv)), MINVAL(var_2d(:,:,:,nv,i)), MAXVAL(var_2d(:,:,:,nv,i))
+      i=1
+      DO nv = 1, nv3d-1
+        DO ip = 1, np
+          WRITE(1,REC=n) SNGL(var_3d(:,:,ip,nv,i))
+          WRITE(ADM_LOG_FID,*) ip, MINVAL(var_3d(:,:,ip,nv,i)), MAXVAL(var_3d(:,:,ip,nv,i))
           n=n+1
         END DO
+        WRITE(ADM_LOG_FID,*) TRIM(varname3d(nv)), MINVAL(var_3d(:,:,:,nv,i)), MAXVAL(var_3d(:,:,:,nv,i))
       END DO
 
+      DO ip = 1, np
+        WRITE(1,REC=n) SNGL(var_3d_rh(:,:,ip))
+        WRITE(ADM_LOG_FID,*) ip, MINVAL(var_3d_rh(:,:,ip)), MAXVAL(var_3d_rh(:,:,ip))
+        n=n+1
+      END DO
+
+      DO nv = 1, nv2d
+        WRITE(1,REC=n) SNGL(var_2d(:,:,1,nv,i))
+        WRITE(ADM_LOG_FID,*) TRIM(varname2d(nv)), MINVAL(var_2d(:,:,:,nv,i)), MAXVAL(var_2d(:,:,:,nv,i))
+        n=n+1
+      END DO
+
+      i=2
+      DO nv = 2, nv3d-1
+        DO ip = 1, np
+          WRITE(1,REC=n) SNGL(var_3d(:,:,ip,nv,i))
+          WRITE(ADM_LOG_FID,*) ip, MINVAL(var_3d(:,:,ip,nv,i)), MAXVAL(var_3d(:,:,ip,nv,i))
+          n=n+1
+        END DO
+        WRITE(ADM_LOG_FID,*) TRIM(varname3d(nv)), MINVAL(var_3d(:,:,:,nv,i)), MAXVAL(var_3d(:,:,:,nv,i))
+      END DO
+
+      DO ip = 1, np
+        WRITE(1,REC=n) SNGL(var_3d_rh(:,:,ip))
+        WRITE(ADM_LOG_FID,*) ip, MINVAL(var_3d_rh(:,:,ip)), MAXVAL(var_3d_rh(:,:,ip))
+        n=n+1
+      END DO
+
+      DO nv = 1, nv2d
+        WRITE(1,REC=n) SNGL(var_2d(:,:,1,nv,i))
+        WRITE(ADM_LOG_FID,*) TRIM(varname2d(nv)), MINVAL(var_2d(:,:,:,nv,i)), MAXVAL(var_2d(:,:,:,nv,i))
+        n=n+1
+      END DO
+      
       CLOSE(1)
 
     ELSE
@@ -452,10 +501,96 @@ PROGRAM main
 
   CALL ADM_proc_finish
 
-END PROGRAM main
+CONTAINS
+
+!!$  --- This function calculates relative humidity [ % ].
+  function calc_rh( tk, prs, qv )
+  use mod_cnst, only :        &
+       CP_T0 => CNST_TMELT,   &
+       CNST_EPSV
+!!$ === Declarations === $!!
+    implicit none
+
+    ! [ IN ]
+    real(8), intent( in ) :: &
+         tk, &                          ! Temperature: [ K ]
+         prs, &                         ! Pressure: [ Pa ]
+         qv                             ! specific humidity [ kg/kg ]
+    ! [ RESULT ]
+    real(8) :: calc_rh
+
+    ! [ WORK ]
+    real(8) :: psat   ! Saturation vapor pressure: [ Pa ]
+    real(8) :: pvap   ! actual vapor pressure: [ Pa ]
+
+!!$ --- End of Header --- $!!
+
+    if ( tk >= CP_T0 ) then
+       psat = moist_psat_water( tk )
+    else
+       psat = moist_psat_ice( tk )
+    endif
+    pvap = qv * prs / (CNST_EPSV + qv * (1.0d0 - CNST_EPSV))
+    calc_rh = pvap / psat * 100.0d0
+
+    return
+  end function calc_rh
+!!$ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ $!!
+
+function moist_psat_water ( tem ) result(psat)
+  ! psat : Clasius-Clapeyron: based on CPV, CPL constant
+  use mod_cnst, only :        &
+       CNST_RVAP,             &
+       CNST_CPV,              &
+       CNST_CL,               &
+       CNST_LH0,              &
+       CNST_LH00,             &
+       CNST_PSAT0,            &
+       CNST_TEM00
+  implicit none
+
+  real(8), intent(in)  :: tem
+  real(8)              :: psat
+
+  real(8) :: TEM_MIN = 10.d0
+  !---------------------------------------------------------------------------
+
+  psat = CNST_PSAT0 &
+       * ( max(tem, TEM_MIN) / CNST_TEM00 ) ** ( ( CNST_CPV - CNST_CL ) / CNST_RVAP )     &
+       * exp ( CNST_LH00 / CNST_RVAP * ( 1.0d0 / CNST_TEM00 - 1.0d0 / max(tem, TEM_MIN) ) )
+
+end function moist_psat_water
+
+!-----------------------------------------------------------------------------
+function moist_psat_ice ( tem ) result(psat)
+  ! psat : Clasius-Clapeyron: based on CPV, CPL constant
+  ! for ice
+  use mod_cnst, only :        &
+       CNST_RVAP,             &
+       CNST_CPV,              &
+       CNST_CI,               &
+       CNST_LHS00,            &
+       CNST_LHS0,             &
+       CNST_PSAT0,            &
+       CNST_TEM00
+  implicit none
+
+  real(8), intent(in)  :: tem
+  real(8)              :: psat
+
+  real(8) :: TEM_MIN = 10.d0
+  !---------------------------------------------------------------------------
+
+  psat = CNST_PSAT0 &
+       * ( max(tem, TEM_MIN) / CNST_TEM00 ) ** ( ( CNST_CPV - CNST_CI ) / CNST_RVAP )      &
+       * exp ( CNST_LHS00 / CNST_RVAP * ( 1.0d0 / CNST_TEM00 - 1.0d0 / max(tem, TEM_MIN) ) )
+
+end function moist_psat_ice
+
 
     SUBROUTINE SPLINE(N,X,Y,CC,WW)
     IMPLICIT REAL*8(A-H),REAL*8(O-Z)
+    INTEGER N, I, K
     DIMENSION X(N),Y(N),CC(N),WW(N)
 
     CC(1)=0.
@@ -474,10 +609,11 @@ END PROGRAM main
     DO 20 K=N-1,1,-1
       CC(K)=CC(K)*CC(K+1)+WW(K)
  20 CONTINUE
-    RETURN
-    END
+    END SUBROUTINE SPLINE
 
     SUBROUTINE SPLINT(N,AX,AY,CC,M,BX,BY)
+    IMPLICIT REAL*8(A-H),REAL*8(O-Z)
+    INTEGER N, M, K, J, KLO, KHI
     REAL*8 AX(N),AY(N),CC(N),BX(M),BY(M)
 
     DO 10 J=1,M
@@ -501,5 +637,6 @@ END PROGRAM main
           ((A**3-A)*CC(KLO)+(B**3-B)*CC(KHI))*(H**2)/6.
     BY(J)=Y
  10 CONTINUE
-    RETURN
-    END
+    END SUBROUTINE SPLINT
+    
+END PROGRAM main

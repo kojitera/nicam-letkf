@@ -3,7 +3,7 @@ PROGRAM obsope
   USE mod_adm
   USE mod_comm
   USE mod_cnst
-  USE mod_grd, ONLY : GRD_setup
+  USE mod_grd, ONLY  : GRD_setup
   USE mod_gmtr, ONLY : &
       GMTR_setup,      &
       GMTR_P_var,      &
@@ -11,7 +11,7 @@ PROGRAM obsope
       GMTR_P_LON
   USE mod_oprt, ONLY : OPRT_setup
   USE mod_vmtr, ONLY : VMTR_setup
-  USE mod_gtl, ONLY :          &
+  USE mod_gtl, ONLY  :         &
        GTL_clip_region,        &
        GTL_clip_region_1layer, &
        GTL_input_var2
@@ -31,23 +31,11 @@ PROGRAM obsope
   CALL ADM_setup('obsope.cnf')
   CALL FIO_setup
   CALL COMM_setup
-  WRITE(ADM_LOG_FID,*) 'comm'
-  FLUSH(ADM_LOG_FID)
   CALL CNST_setup
-  WRITE(ADM_LOG_FID,*) 'cnst'
-  FLUSH(ADM_LOG_FID)
   CALL GRD_setup
-  WRITE(ADM_LOG_FID,*) 'grd'
-  FLUSH(ADM_LOG_FID)
   CALL GMTR_setup
-  WRITE(ADM_LOG_FID,*) 'gmtr'
-  FLUSH(ADM_LOG_FID)
   CALL OPRT_setup
-  WRITE(ADM_LOG_FID,*) 'oprt'
-  FLUSH(ADM_LOG_FID)
   CALL VMTR_setup
-  WRITE(ADM_LOG_FID,*) 'vmtr'
-  FLUSH(ADM_LOG_FID)
 
   time(:)=0.0d0
   tmp_time(1)=MPI_WTIME()
